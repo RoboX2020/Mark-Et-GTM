@@ -211,6 +211,7 @@ export function mockGraph(ctx: RunContext): GraphOut {
     for (const ch of rng.sample(channels, Math.min(3, channels.length))) edges.push({ source: s.id, target: ch.id, relation: "prefers", weight: rng.range(0.4, 1), evidenceIds: [] });
     edges.push({ source: s.id, target: s.priceSensitivity > 0.6 ? "price_free" : s.wtpMultiple > 1.3 ? "price_premium" : "price_launch", relation: "anchors_on", weight: 0.7, evidenceIds: [] });
   }
+  for (const t of trends) for (const s of rng.sample(segments, 2)) edges.push({ source: t.id, target: s.id, relation: "affects", weight: t.strength, evidenceIds: t.evidenceIds });
   for (const c of conditions) for (const s of rng.sample(segments, 2)) edges.push({ source: c.id, target: s.id, relation: "affects", weight: c.probability, evidenceIds: c.signalIds });
   for (const c of competitors) {
     edges.push({ source: "product", target: c.id, relation: "competes_with", weight: c.strength, evidenceIds: [] });

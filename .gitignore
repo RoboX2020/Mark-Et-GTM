@@ -9,3 +9,4 @@ __pycache__/
 .venv/
 apps/portal/src/stdb/module_bindings/
 data/cache/live/
+apps/portal/dist/

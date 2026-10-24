@@ -5,7 +5,7 @@
     "kind": "market_backtest",
     "mode": "cache",
     "file": "market_backtest.jsonl",
-    "createdAt": "2026-10-24T18:48:18.895Z"
+    "createdAt": "2026-10-24T18:59:14.979Z"
   },
   {
     "id": "backtest_illustrative-notes-app",
@@ -13,7 +13,7 @@
     "kind": "backtest",
     "mode": "cache",
     "file": "backtest_illustrative-notes-app.jsonl",
-    "createdAt": "2026-10-24T18:48:17.635Z"
+    "createdAt": "2026-10-24T18:59:13.839Z"
   },
   {
     "id": "demo",
@@ -21,6 +21,6 @@
     "kind": "simulation",
     "mode": "mock",
     "file": "demo.jsonl",
-    "createdAt": "2026-10-24T18:48:16.264Z"
+    "createdAt": "2026-10-24T18:59:12.347Z"
   }
 ]
