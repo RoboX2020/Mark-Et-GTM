@@ -36,16 +36,30 @@ event log. Any run can be replayed at adjustable speed, fully offline.
 
 ```bash
 pnpm install
-pnpm demo        # runs the full pipeline in mock mode → data/runs/demo.jsonl
-pnpm dev         # portal at http://localhost:5173, replays recorded runs
+pnpm dev                     # portal at http://localhost:5173, replays the recorded runs
+pnpm demo                    # re-runs the full pipeline in mock mode → data/runs/demo.jsonl
+pnpm backtest                # illustrative product backtest (anonymised, pre-cutoff only)
+pnpm --filter @market/engine backtest-markets   # swarm vs. resolved prediction markets
+pnpm test                    # unit + integration tests
 ```
+
+Recorded runs live in `apps/portal/public/runs/`, so the portal works fully
+offline. In the top bar you can pick a run, play it at 1× to 200×, scrub, or
+open any `.jsonl` event log.
 
 ## Live run
 
 ```bash
 cp .env.example .env   # fill in keys: see docs/API_KEYS.md
-MARKET_MODE=live pnpm --filter @market/engine run simulate -- --brief data/briefs/example.json
+pnpm --filter @market/engine run simulate -- --mode live --brief data/briefs/example.json --population 500
 ```
+
+Engine flags: `--mode live|cache|mock`, `--population n`, `--rounds n`,
+`--spacetime` (stream into SpacetimeDB), `--id`, `--label`, and `--no-publish`
+(don't copy the run into the portal).
+
+Fetch.ai agents: start `agents/fetch/bridge.py` (see its README) and set
+`FETCH_ENABLED=true`.
 
 With SpacetimeDB:
 
@@ -60,4 +74,7 @@ VITE_STREAM_SOURCE=spacetime pnpm dev
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [API keys](docs/API_KEYS.md)
-- [Progress log](docs/PROGRESS.md): what is built and what is next
+- [Progress log](docs/PROGRESS.md): what is built, what is verified, what is next
+- [SpacetimeDB module](spacetime/README.md)
+- [Fetch.ai bridge](agents/fetch/README.md)
+- [Anchor interviews format](data/anchors/README.md)
