@@ -23,7 +23,8 @@ Kept current with each commit, so work can resume from any point.
 | Fetch.ai bridge | Verified locally with uAgents 0.26.1 |
 | SpacetimeDB module | Compiles. Not yet published (CLI install blocked in the dev sandbox) |
 | Portal live mode (SpacetimeDB) | Written against SDK 2.13 types. Needs `spacetime generate` bindings and a running server to verify |
-| Claude, Gemini and Runpod calls | Written against the current SDKs and typechecked. Not called yet (no keys) |
+| Claude and Gemini calls | **Verified live.** Full run `live_tandem`: 300 agents, 6 rounds, 94 Gemini swarm calls, 18 Claude interviews, Claude graph and report, 0 fallbacks, about $1.31 of Claude usage |
+| Runpod calls | Written and typechecked. Not called (no endpoint provided) |
 | Bright Data, Apify, Kalshi, Polymarket | Written against the documented APIs. Hosts blocked in the sandbox. Each fetch is cached, so a first live run seeds `data/cache/live` |
 | Backtest case | `data/backtests/illustrative-notes-app.json` is fictional and labelled so. A real case needs real observed adoption data |
 

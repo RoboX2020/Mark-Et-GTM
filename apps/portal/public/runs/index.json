@@ -1,5 +1,13 @@
 [
   {
+    "id": "live_tandem",
+    "label": "Tandem · live models (Claude + Gemini)",
+    "kind": "simulation",
+    "mode": "live",
+    "file": "live_tandem.jsonl",
+    "createdAt": "2026-10-24T21:44:06.354Z"
+  },
+  {
     "id": "market_backtest",
     "label": "Prediction-market backtest",
     "kind": "market_backtest",
