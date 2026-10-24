@@ -9,6 +9,11 @@ export interface JsonRequest<T> {
   prompt: string;
   schema: z.ZodType<T>;
   maxTokens?: number;
+  /**
+   * Skip constrained decoding and validate the reply instead. Needed for schemas
+   * too large for a structured-output grammar (the knowledge graph).
+   */
+  freeform?: boolean;
   /** Deterministic offline answer. Required: every call must work with no network. */
   mock: () => T;
 }
