@@ -3028,3 +3028,147 @@
 {"runId":"live_tandem","seq":3027,"ts":1792878144178,"event":{"type":"report.delta","id":"verdict","text":"grade."}}
 {"runId":"live_tandem","seq":3028,"ts":1792878144180,"event":{"type":"report.section.done","id":"verdict"}}
 {"runId":"live_tandem","seq":3029,"ts":1792878144180,"event":{"type":"report.section","id":"adoption","title":"Predicted adoption","order":1}}
+{"runId":"live_tandem","seq":3030,"ts":1792878153766,"event":{"type":"report.delta","id":"adoption","text":"**"}}
+{"runId":"live_tandem","seq":3031,"ts":1792878153809,"event":{"type":"report.delta","id":"adoption","text":"Bott"}}
+{"runId":"live_tandem","seq":3032,"ts":1792878153859,"event":{"type":"report.delta","id":"adoption","text":"om line:** the"}}
+{"runId":"live_tandem","seq":3033,"ts":1792878153908,"event":{"type":"report.delta","id":"adoption","text":" model"}}
+{"runId":"live_tandem","seq":3034,"ts":1792878153958,"event":{"type":"report.delta","id":"adoption","text":" pred"}}
+{"runId":"live_tandem","seq":3035,"ts":1792878154008,"event":{"type":"report.delta","id":"adoption","text":"icts a f"}}
+{"runId":"live_tandem","seq":3036,"ts":1792878154058,"event":{"type":"report.delta","id":"adoption","text":"ast, front"}}
+{"runId":"live_tandem","seq":3037,"ts":1792878154109,"event":{"type":"report.delta","id":"adoption","text":"-loaded laun"}}
+{"runId":"live_tandem","seq":3038,"ts":1792878154158,"event":{"type":"report.delta","id":"adoption","text":"ch that saturates within"}}
+{"runId":"live_tandem","seq":3039,"ts":1792878154213,"event":{"type":"report.delta","id":"adoption","text":" the"}}
+{"runId":"live_tandem","seq":3040,"ts":1792878154258,"event":{"type":"report.delta","id":"adoption","text":" first academ"}}
+{"runId":"live_tandem","seq":3041,"ts":1792878154310,"event":{"type":"report.delta","id":"adoption","text":"ic year. It ult"}}
+{"runId":"live_tandem","seq":3042,"ts":1792878154360,"event":{"type":"report.delta","id":"adoption","text":"imately reaches about **22"}}
+{"runId":"live_tandem","seq":3043,"ts":1792878154427,"event":{"type":"report.delta","id":"adoption","text":"% of the addressable market ("}}
+{"runId":"live_tandem","seq":3044,"ts":1792878154458,"event":{"type":"report.delta","id":"adoption","text":"m = 0.221"}}
+{"runId":"live_tandem","seq":3045,"ts":1792878154508,"event":{"type":"report.delta","id":"adoption","text":")**. All in"}}
+{"runId":"live_tandem","seq":3046,"ts":1792878154558,"event":{"type":"report.delta","id":"adoption","text":"puts are sim"}}
+{"runId":"live_tandem","seq":3047,"ts":1792878154609,"event":{"type":"report.delta","id":"adoption","text":"ulated, so treat this"}}
+{"runId":"live_tandem","seq":3048,"ts":1792878154661,"event":{"type":"report.delta","id":"adoption","text":" as a shape, not a for"}}
+{"runId":"live_tandem","seq":3049,"ts":1792878154709,"event":{"type":"report.delta","id":"adoption","text":"ecast.\n\n**What the f"}}
+{"runId":"live_tandem","seq":3050,"ts":1792878154758,"event":{"type":"report.delta","id":"adoption","text":"it says,"}}
+{"runId":"live_tandem","seq":3051,"ts":1792878154809,"event":{"type":"report.delta","id":"adoption","text":" in plain language**"}}
+{"runId":"live_tandem","seq":3052,"ts":1792878154859,"event":{"type":"report.delta","id":"adoption","text":"\n- **p = 0.120"}}
+{"runId":"live_tandem","seq":3053,"ts":1792878154909,"event":{"type":"report.delta","id":"adoption","text":" (innovation).** About"}}
+{"runId":"live_tandem","seq":3054,"ts":1792878154959,"event":{"type":"report.delta","id":"adoption","text":" 12% of rem"}}
+{"runId":"live_tandem","seq":3055,"ts":1792878155009,"event":{"type":"report.delta","id":"adoption","text":"aining pr"}}
+{"runId":"live_tandem","seq":3056,"ts":1792878155060,"event":{"type":"report.delta","id":"adoption","text":"ospects each month adopt on"}}
+{"runId":"live_tandem","seq":3057,"ts":1792878155110,"event":{"type":"report.delta","id":"adoption","text":" their own, from"}}
+{"runId":"live_tandem","seq":3058,"ts":1792878155159,"event":{"type":"report.delta","id":"adoption","text":" ads, T"}}
+{"runId":"live_tandem","seq":3059,"ts":1792878155211,"event":{"type":"report.delta","id":"adoption","text":"ikTok dem"}}
+{"runId":"live_tandem","seq":3060,"ts":1792878155259,"event":{"type":"report.delta","id":"adoption","text":"os or the App"}}
+{"runId":"live_tandem","seq":3061,"ts":1792878155309,"event":{"type":"report.delta","id":"adoption","text":" Store, reg"}}
+{"runId":"live_tandem","seq":3062,"ts":1792878155361,"event":{"type":"report.delta","id":"adoption","text":"ardless of what"}}
+{"runId":"live_tandem","seq":3063,"ts":1792878155409,"event":{"type":"report.delta","id":"adoption","text":" pe"}}
+{"runId":"live_tandem","seq":3064,"ts":1792878155460,"event":{"type":"report.delta","id":"adoption","text":"ers do.\n- **q ="}}
+{"runId":"live_tandem","seq":3065,"ts":1792878155510,"event":{"type":"report.delta","id":"adoption","text":" 0.235"}}
+{"runId":"live_tandem","seq":3066,"ts":1792878155560,"event":{"type":"report.delta","id":"adoption","text":" (imitation /"}}
+{"runId":"live_tandem","seq":3067,"ts":1792878155611,"event":{"type":"report.delta","id":"adoption","text":" word of mouth).**"}}
+{"runId":"live_tandem","seq":3068,"ts":1792878155659,"event":{"type":"report.delta","id":"adoption","text":" Each month"}}
+{"runId":"live_tandem","seq":3069,"ts":1792878155709,"event":{"type":"report.delta","id":"adoption","text":", exist"}}
+{"runId":"live_tandem","seq":3070,"ts":1792878155759,"event":{"type":"report.delta","id":"adoption","text":"ing adopters p"}}
+{"runId":"live_tandem","seq":3071,"ts":1792878155810,"event":{"type":"report.delta","id":"adoption","text":"ull in others"}}
+{"runId":"live_tandem","seq":3072,"ts":1792878155860,"event":{"type":"report.delta","id":"adoption","text":" at roughly twice the inn"}}
+{"runId":"live_tandem","seq":3073,"ts":1792878155910,"event":{"type":"report.delta","id":"adoption","text":"ovation rate.\n- **"}}
+{"runId":"live_tandem","seq":3074,"ts":1792878155959,"event":{"type":"report.delta","id":"adoption","text":"Peak month"}}
+{"runId":"live_tandem","seq":3075,"ts":1792878156009,"event":{"type":"report.delta","id":"adoption","text":" ≈ 1.9"}}
+{"runId":"live_tandem","seq":3076,"ts":1792878156059,"event":{"type":"report.delta","id":"adoption","text":".** New s"}}
+{"runId":"live_tandem","seq":3077,"ts":1792878156109,"event":{"type":"report.delta","id":"adoption","text":"ign-ups peak in about"}}
+{"runId":"live_tandem","seq":3078,"ts":1792878156160,"event":{"type":"report.delta","id":"adoption","text":" month"}}
+{"runId":"live_tandem","seq":3079,"ts":1792878156209,"event":{"type":"report.delta","id":"adoption","text":" 2 ("}}
+{"runId":"live_tandem","seq":3080,"ts":1792878156260,"event":{"type":"report.delta","id":"adoption","text":"around"}}
+{"runId":"live_tandem","seq":3081,"ts":1792878156312,"event":{"type":"report.delta","id":"adoption","text":" late October 2026,"}}
+{"runId":"live_tandem","seq":3082,"ts":1792878156374,"event":{"type":"report.delta","id":"adoption","text":" given a 1 "}}
+{"runId":"live_tandem","seq":3083,"ts":1792878156426,"event":{"type":"report.delta","id":"adoption","text":"Sept launch).\n- **"}}
+{"runId":"live_tandem","seq":3084,"ts":1792878156464,"event":{"type":"report.delta","id":"adoption","text":"Month"}}
+{"runId":"live_tandem","seq":3085,"ts":1792878156509,"event":{"type":"report.delta","id":"adoption","text":" 12."}}
+{"runId":"live_tandem","seq":3086,"ts":1792878156559,"event":{"type":"report.delta","id":"adoption","text":"** The curve reaches "}}
+{"runId":"live_tandem","seq":3087,"ts":1792878156610,"event":{"type":"report.delta","id":"adoption","text":"21.2%"}}
+{"runId":"live_tandem","seq":3088,"ts":1792878156672,"event":{"type":"report.delta","id":"adoption","text":", about 96% of m."}}
+{"runId":"live_tandem","seq":3089,"ts":1792878156710,"event":{"type":"report.delta","id":"adoption","text":" There"}}
+{"runId":"live_tandem","seq":3090,"ts":1792878156759,"event":{"type":"report.delta","id":"adoption","text":" is little long"}}
+{"runId":"live_tandem","seq":3091,"ts":1792878156809,"event":{"type":"report.delta","id":"adoption","text":" tail after the first"}}
+{"runId":"live_tandem","seq":3092,"ts":1792878156865,"event":{"type":"report.delta","id":"adoption","text":" semester.\n\n**What"}}
+{"runId":"live_tandem","seq":3093,"ts":1792878156910,"event":{"type":"report.delta","id":"adoption","text":" drives it**"}}
+{"runId":"live_tandem","seq":3094,"ts":1792878156959,"event":{"type":"report.delta","id":"adoption","text":"\n\nA"}}
+{"runId":"live_tandem","seq":3095,"ts":1792878157009,"event":{"type":"report.delta","id":"adoption","text":" q/p ratio near"}}
+{"runId":"live_tandem","seq":3096,"ts":1792878157060,"event":{"type":"report.delta","id":"adoption","text":" 2 is low for a cons"}}
+{"runId":"live_tandem","seq":3097,"ts":1792878157109,"event":{"type":"report.delta","id":"adoption","text":"umer app"}}
+{"runId":"live_tandem","seq":3098,"ts":1792878157160,"event":{"type":"report.delta","id":"adoption","text":"."}}
+{"runId":"live_tandem","seq":3099,"ts":1792878157210,"event":{"type":"report.delta","id":"adoption","text":" Growth le"}}
+{"runId":"live_tandem","seq":3100,"ts":1792878157259,"event":{"type":"report.delta","id":"adoption","text":"ans on dire"}}
+{"runId":"live_tandem","seq":3101,"ts":1792878157309,"event":{"type":"report.delta","id":"adoption","text":"ct disc"}}
+{"runId":"live_tandem","seq":3102,"ts":1792878157359,"event":{"type":"report.delta","id":"adoption","text":"overy more than on vi"}}
+{"runId":"live_tandem","seq":3103,"ts":1792878157409,"event":{"type":"report.delta","id":"adoption","text":"ral comp"}}
+{"runId":"live_tandem","seq":3104,"ts":1792878157466,"event":{"type":"report.delta","id":"adoption","text":"ounding. The"}}
+{"runId":"live_tandem","seq":3105,"ts":1792878157510,"event":{"type":"report.delta","id":"adoption","text":" ag"}}
+{"runId":"live_tandem","seq":3106,"ts":1792878157559,"event":{"type":"report.delta","id":"adoption","text":"ent data is"}}
+{"runId":"live_tandem","seq":3107,"ts":1792878157609,"event":{"type":"report.delta","id":"adoption","text":" consistent with this. Tik"}}
+{"runId":"live_tandem","seq":3108,"ts":1792878157664,"event":{"type":"report.delta","id":"adoption","text":"Tok converted"}}
+{"runId":"live_tandem","seq":3109,"ts":1792878157709,"event":{"type":"report.delta","id":"adoption","text":" 29.4% of expos"}}
+{"runId":"live_tandem","seq":3110,"ts":1792878157759,"event":{"type":"report.delta","id":"adoption","text":"ed agents, while word of m"}}
+{"runId":"live_tandem","seq":3111,"ts":1792878157809,"event":{"type":"report.delta","id":"adoption","text":"outh converted 16.8"}}
+{"runId":"live_tandem","seq":3112,"ts":1792878157859,"event":{"type":"report.delta","id":"adoption","text":"% [[E"}}
+{"runId":"live_tandem","seq":3113,"ts":1792878157909,"event":{"type":"report.delta","id":"adoption","text":":fx_tiktok"}}
+{"runId":"live_tandem","seq":3114,"ts":1792878157974,"event":{"type":"report.delta","id":"adoption","text":"_63]]. Peer"}}
+{"runId":"live_tandem","seq":3115,"ts":1792878158009,"event":{"type":"report.delta","id":"adoption","text":" refer"}}
+{"runId":"live_tandem","seq":3116,"ts":1792878158059,"event":{"type":"report.delta","id":"adoption","text":"rals do app"}}
+{"runId":"live_tandem","seq":3117,"ts":1792878158109,"event":{"type":"report.delta","id":"adoption","text":"ear in ag"}}
+{"runId":"live_tandem","seq":3118,"ts":1792878158159,"event":{"type":"report.delta","id":"adoption","text":"ent comments (\"Pia"}}
+{"runId":"live_tandem","seq":3119,"ts":1792878158209,"event":{"type":"report.delta","id":"adoption","text":" says Ada confirmed"}}
+{"runId":"live_tandem","seq":3120,"ts":1792878158260,"event":{"type":"report.delta","id":"adoption","text":" it saves hours!"}}
+{"runId":"live_tandem","seq":3121,"ts":1792878158309,"event":{"type":"report.delta","id":"adoption","text":"\")"}}
+{"runId":"live_tandem","seq":3122,"ts":1792878158360,"event":{"type":"report.delta","id":"adoption","text":" [[A:ag_0"}}
+{"runId":"live_tandem","seq":3123,"ts":1792878158411,"event":{"type":"report.delta","id":"adoption","text":"027]] [[A:"}}
+{"runId":"live_tandem","seq":3124,"ts":1792878158459,"event":{"type":"report.delta","id":"adoption","text":"ag_0280]]."}}
+{"runId":"live_tandem","seq":3125,"ts":1792878158509,"event":{"type":"report.delta","id":"adoption","text":" Price"}}
+{"runId":"live_tandem","seq":3126,"ts":1792878158559,"event":{"type":"report.delta","id":"adoption","text":" fri"}}
+{"runId":"live_tandem","seq":3127,"ts":1792878158609,"event":{"type":"report.delta","id":"adoption","text":"ction lik"}}
+{"runId":"live_tandem","seq":3128,"ts":1792878158659,"event":{"type":"report.delta","id":"adoption","text":"ely caps m:"}}
+{"runId":"live_tandem","seq":3129,"ts":1792878158714,"event":{"type":"report.delta","id":"adoption","text":" \""}}
+{"runId":"live_tandem","seq":3130,"ts":1792878158760,"event":{"type":"report.delta","id":"adoption","text":"too"}}
+{"runId":"live_tandem","seq":3131,"ts":1792878158809,"event":{"type":"report.delta","id":"adoption","text":" expensive\" was"}}
+{"runId":"live_tandem","seq":3132,"ts":1792878158859,"event":{"type":"report.delta","id":"adoption","text":" the top objection, with 125"}}
+{"runId":"live_tandem","seq":3133,"ts":1792878158909,"event":{"type":"report.delta","id":"adoption","text":" m"}}
+{"runId":"live_tandem","seq":3134,"ts":1792878158959,"event":{"type":"report.delta","id":"adoption","text":"entions.\n\n**How confident"}}
+{"runId":"live_tandem","seq":3135,"ts":1792878159009,"event":{"type":"report.delta","id":"adoption","text":" to"}}
+{"runId":"live_tandem","seq":3136,"ts":1792878159060,"event":{"type":"report.delta","id":"adoption","text":" be**\n- **"}}
+{"runId":"live_tandem","seq":3137,"ts":1792878159111,"event":{"type":"report.delta","id":"adoption","text":"Fit quality.** In"}}
+{"runId":"live_tandem","seq":3138,"ts":1792878159160,"event":{"type":"report.delta","id":"adoption","text":"-sample fit is"}}
+{"runId":"live_tandem","seq":3139,"ts":1792878159210,"event":{"type":"report.delta","id":"adoption","text":" tight (RMSE "}}
+{"runId":"live_tandem","seq":3140,"ts":1792878159260,"event":{"type":"report.delta","id":"adoption","text":"0.0055), but it"}}
+{"runId":"live_tandem","seq":3141,"ts":1792878159310,"event":{"type":"report.delta","id":"adoption","text":" u"}}
+{"runId":"live_tandem","seq":3142,"ts":1792878159359,"event":{"type":"report.delta","id":"adoption","text":"ses 3 parameters on"}}
+{"runId":"live_tandem","seq":3143,"ts":1792878159409,"event":{"type":"report.delta","id":"adoption","text":" only **"}}
+{"runId":"live_tandem","seq":3144,"ts":1792878159459,"event":{"type":"report.delta","id":"adoption","text":"6 sim"}}
+{"runId":"live_tandem","seq":3145,"ts":1792878159525,"event":{"type":"report.delta","id":"adoption","text":"ulated months**"}}
+{"runId":"live_tandem","seq":3146,"ts":1792878159559,"event":{"type":"report.delta","id":"adoption","text":" from 300 agents, all"}}
+{"runId":"live_tandem","seq":3147,"ts":1792878159609,"event":{"type":"report.delta","id":"adoption","text":" on"}}
+{"runId":"live_tandem","seq":3148,"ts":1792878159659,"event":{"type":"report.delta","id":"adoption","text":" a single back"}}
+{"runId":"live_tandem","seq":3149,"ts":1792878159710,"event":{"type":"report.delta","id":"adoption","text":"end (gemini)."}}
+{"runId":"live_tandem","seq":3150,"ts":1792878159760,"event":{"type":"report.delta","id":"adoption","text":"\n- **Months 7–"}}
+{"runId":"live_tandem","seq":3151,"ts":1792878159810,"event":{"type":"report.delta","id":"adoption","text":"12.** These are pure ext"}}
+{"runId":"live_tandem","seq":3152,"ts":1792878159859,"event":{"type":"report.delta","id":"adoption","text":"rapolation [[E"}}
+{"runId":"live_tandem","seq":3153,"ts":1792878159909,"event":{"type":"report.delta","id":"adoption","text":":anchor_fx_"}}
+{"runId":"live_tandem","seq":3154,"ts":1792878159960,"event":{"type":"report.delta","id":"adoption","text":"0]].\n- **Syn"}}
+{"runId":"live_tandem","seq":3155,"ts":1792878160009,"event":{"type":"report.delta","id":"adoption","text":"thetic inputs.**"}}
+{"runId":"live_tandem","seq":3156,"ts":1792878160060,"event":{"type":"report.delta","id":"adoption","text":" All 147 posts and all"}}
+{"runId":"live_tandem","seq":3157,"ts":1792878160110,"event":{"type":"report.delta","id":"adoption","text":" 4 anchors are syn"}}
+{"runId":"live_tandem","seq":3158,"ts":1792878160160,"event":{"type":"report.delta","id":"adoption","text":"thetic or"}}
+{"runId":"live_tandem","seq":3159,"ts":1792878160211,"event":{"type":"report.delta","id":"adoption","text":" fixture data.\n- **"}}
+{"runId":"live_tandem","seq":3160,"ts":1792878160260,"event":{"type":"report.delta","id":"adoption","text":"Stated confidence.**"}}
+{"runId":"live_tandem","seq":3161,"ts":1792878160310,"event":{"type":"report.delta","id":"adoption","text":" The provenance confidence for"}}
+{"runId":"live_tandem","seq":3162,"ts":1792878160360,"event":{"type":"report.delta","id":"adoption","text":" m is 0.76 "}}
+{"runId":"live_tandem","seq":3163,"ts":1792878160410,"event":{"type":"report.delta","id":"adoption","text":"and"}}
+{"runId":"live_tandem","seq":3164,"ts":1792878160460,"event":{"type":"report.delta","id":"adoption","text":" it"}}
+{"runId":"live_tandem","seq":3165,"ts":1792878160511,"event":{"type":"report.delta","id":"adoption","text":" is not flagged for review."}}
+{"runId":"live_tandem","seq":3166,"ts":1792878160610,"event":{"type":"report.delta","id":"adoption","text":" Even"}}
+{"runId":"live_tandem","seq":3167,"ts":1792878160659,"event":{"type":"report.delta","id":"adoption","text":" so, real"}}
+{"runId":"live_tandem","seq":3168,"ts":1792878160710,"event":{"type":"report.delta","id":"adoption","text":"-world validation is ess"}}
+{"runId":"live_tandem","seq":3169,"ts":1792878160760,"event":{"type":"report.delta","id":"adoption","text":"ential before you"}}
+{"runId":"live_tandem","seq":3170,"ts":1792878160810,"event":{"type":"report.delta","id":"adoption","text":" r"}}
+{"runId":"live_tandem","seq":3171,"ts":1792878160860,"event":{"type":"report.delta","id":"adoption","text":"ely on this curve."}}
+{"runId":"live_tandem","seq":3172,"ts":1792878160865,"event":{"type":"report.section.done","id":"adoption"}}
+{"runId":"live_tandem","seq":3173,"ts":1792878160865,"event":{"type":"report.section","id":"segments","title":"Who to target first","order":2}}
