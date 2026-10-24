@@ -10,5 +10,8 @@
     "backtest": "pnpm --filter @market/engine backtest",
     "dev": "pnpm --filter @market/portal dev"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.28.0"
 }
