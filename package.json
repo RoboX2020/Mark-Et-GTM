@@ -1,0 +1,14 @@
+{
+  "name": "mark-et-gtm",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "demo": "pnpm --filter @market/engine demo",
+    "backtest": "pnpm --filter @market/engine backtest",
+    "dev": "pnpm --filter @market/portal dev"
+  },
+  "engines": { "node": ">=20" }
+}
