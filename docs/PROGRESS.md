@@ -11,7 +11,7 @@ Kept current with each commit, so work can resume from any point.
 - [x] M4: SpacetimeDB Rust module
 - [x] M5: portal: design system, live rail, tabs, replay
 - [x] M6: backtesting (product + prediction markets)
-- [ ] M7: Fetch.ai uAgents bridge
+- [x] M7: Fetch.ai uAgents bridge
 
 ## Notes
 

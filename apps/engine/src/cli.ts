@@ -38,6 +38,7 @@ async function main() {
   const { values, positionals } = parseArgs({
     args: rest,
     allowPositionals: true,
+    allowNegative: true,
     options: {
       brief: { type: "string" },
       mode: { type: "string" },
