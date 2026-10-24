@@ -8,7 +8,7 @@ Kept current with each commit, so work can resume from any point.
 - [x] M1: `packages/core`: event schema, fold reducer, Bass fit, finance maths, RNG
 - [x] M2: engine: connectors (cached), LLM router (Claude, Gemini, Runpod, mock), pipeline stages
 - [x] M3: engine: sinks (JSONL, SpacetimeDB), CLI, demo run recorded
-- [ ] M4: SpacetimeDB Rust module
+- [x] M4: SpacetimeDB Rust module
 - [ ] M5: portal: design system, live rail, tabs, replay
 - [ ] M6: backtesting (product + prediction markets)
 - [ ] M7: Fetch.ai uAgents bridge
