@@ -1,0 +1,26 @@
+[
+  {
+    "id": "market_backtest",
+    "label": "Prediction-market backtest",
+    "kind": "market_backtest",
+    "mode": "cache",
+    "file": "market_backtest.jsonl",
+    "createdAt": "2026-10-24T18:48:18.895Z"
+  },
+  {
+    "id": "backtest_illustrative-notes-app",
+    "label": "Backtest · Product Q",
+    "kind": "backtest",
+    "mode": "cache",
+    "file": "backtest_illustrative-notes-app.jsonl",
+    "createdAt": "2026-10-24T18:48:17.635Z"
+  },
+  {
+    "id": "demo",
+    "label": "Tandem · USD 8",
+    "kind": "simulation",
+    "mode": "mock",
+    "file": "demo.jsonl",
+    "createdAt": "2026-10-24T18:48:16.264Z"
+  }
+]
