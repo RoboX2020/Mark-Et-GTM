@@ -98,7 +98,7 @@ function mockInterview(ctx: RunContext, p: Persona): z.infer<typeof InterviewSch
   const recommend = state === "adopted" || (state === "considering" && rng.chance(0.4));
   return {
     answers: [
-      `It's a ${b.product.category} tool — ${b.product.description.toLowerCase()} Mostly aimed at people like me in ${b.targetMarket}, I think.`,
+      `It's a ${b.product.category} tool. ${b.product.description} Mostly aimed at people like me in ${b.targetMarket}, I think.`,
       state === "adopted"
         ? `I saw it ${channel === "word_of_mouth" ? "from a friend" : `on ${channel.replaceAll("_", " ")}`}, tried it, and it fit how I already work${comp ? ` better than ${comp}` : ""}.`
         : state === "rejected"

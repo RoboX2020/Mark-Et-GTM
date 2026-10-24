@@ -73,7 +73,7 @@ export async function buildPopulation(ctx: RunContext): Promise<void> {
       segmentId: seg.id,
       ageBand: prof.ageBand,
       role,
-      bio: bio(role, seg, painLabels, compLabels, traits, anchor?.quotes[0]),
+      bio: bio(role, seg, painLabels, compLabels, traits, anchor?.quotes[0], anchor?.synthetic),
       traits,
       wtp: Math.round(wtp * 100) / 100,
       painIds,
@@ -88,7 +88,7 @@ export async function buildPopulation(ctx: RunContext): Promise<void> {
   bus.emit({ type: "stage", stage: "population", status: "done", detail: `${personas.length} agents across ${segments.length} segments` });
 }
 
-function bio(role: string, seg: GraphNode, pains: string[], comps: string[], t: Persona["traits"], anchorQuote?: string): string {
+function bio(role: string, seg: GraphNode, pains: string[], comps: string[], t: Persona["traits"], anchorQuote?: string, anchorSynthetic?: boolean): string {
   const adj = [
     t.innovativeness > 0.6 ? "loves trying new tools" : t.innovativeness < 0.3 ? "rarely switches tools" : "tries new tools occasionally",
     t.priceSensitivity > 0.65 ? "watches every subscription" : t.priceSensitivity < 0.3 ? "pays for convenience" : "is moderately price-aware",
@@ -99,7 +99,7 @@ function bio(role: string, seg: GraphNode, pains: string[], comps: string[], t: 
     `A ${role} in the "${seg.label}" segment who ${adj.join(", ")}.`,
     comps.length ? `Currently uses ${comps.join(" and ")}.` : "",
     pains.length ? `Cares most about: ${pains.join("; ")}.` : "",
-    anchorQuote ? `Shares the outlook of a real interviewee who said: "${anchorQuote}"` : "",
+    anchorQuote ? `Shares the outlook of ${anchorSynthetic ? "an anchor interview (fixture)" : "a real interviewee"} who said: "${anchorQuote}"` : "",
   ]
     .filter(Boolean)
     .join(" ");
