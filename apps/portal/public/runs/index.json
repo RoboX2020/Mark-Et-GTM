@@ -1,7 +1,7 @@
 [
   {
     "id": "live_tandem",
-    "label": "Tandem · live models (Claude + Gemini)",
+    "label": "Tandem \u00b7 live models (Claude + Gemini)",
     "kind": "simulation",
     "mode": "live",
     "file": "live_tandem.jsonl",
@@ -17,7 +17,7 @@
   },
   {
     "id": "backtest_illustrative-notes-app",
-    "label": "Backtest · Product Q",
+    "label": "Backtest \u00b7 Product Q",
     "kind": "backtest",
     "mode": "cache",
     "file": "backtest_illustrative-notes-app.jsonl",
@@ -25,7 +25,7 @@
   },
   {
     "id": "demo",
-    "label": "Tandem · USD 8",
+    "label": "Tandem \u00b7 offline demo (mock models)",
     "kind": "simulation",
     "mode": "mock",
     "file": "demo.jsonl",
