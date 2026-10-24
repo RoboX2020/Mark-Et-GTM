@@ -19,9 +19,14 @@ export class GeminiClient implements LlmClient {
         systemInstruction: req.system,
         responseMimeType: "application/json",
         responseJsonSchema: z.toJSONSchema(req.schema),
-        maxOutputTokens: req.maxTokens ?? 8192,
+        // Swarm agents answer in short JSON; thinking tokens would count against
+        // maxOutputTokens and truncate the reply mid-array.
+        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: Math.max(8192, req.maxTokens ?? 0),
       },
     });
+    const finish = res.candidates?.[0]?.finishReason;
+    if (finish && finish !== "STOP") throw new Error(`gemini finished with ${finish}`);
     this.usage.add("gemini", req.purpose, res.usageMetadata?.promptTokenCount ?? 0, res.usageMetadata?.candidatesTokenCount ?? 0);
     return req.schema.parse(extractJson(res.text ?? ""));
   }

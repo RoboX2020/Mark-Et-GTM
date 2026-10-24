@@ -67,7 +67,7 @@ export async function buildGraph(ctx: RunContext): Promise<void> {
     compactEvidence(ctx),
   ].join("\n");
 
-  const { value } = await llm.json(llm.reasoningBackend, { purpose: "graph", system: SYSTEM, prompt, schema: GraphSchema, maxTokens: 24000, mock: () => mockGraph(ctx) });
+  const { value } = await llm.json(llm.reasoningBackend, { purpose: "graph", system: SYSTEM, prompt, schema: GraphSchema, maxTokens: 32000, freeform: true, mock: () => mockGraph(ctx) });
   if (value.recognizedProduct && ctx.backtest) ctx.leakageWarnings.push("Graph extractor reported recognising the product despite anonymisation.");
   materialise(ctx, value);
   bus.emit({ type: "stage", stage: "graph", status: "done", detail: `${ctx.nodes.length} nodes, ${ctx.edges.length} edges` });
