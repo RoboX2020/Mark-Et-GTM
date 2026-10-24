@@ -5,7 +5,7 @@ Kept current with each commit, so work can resume from any point.
 ## Milestones
 
 - [x] M0: repo scaffold, architecture, API key guide
-- [ ] M1: `packages/core`: event schema, fold reducer, Bass fit, finance maths, RNG
+- [x] M1: `packages/core`: event schema, fold reducer, Bass fit, finance maths, RNG
 - [ ] M2: engine: connectors (cached), LLM router (Claude, Gemini, Runpod, mock), pipeline stages
 - [ ] M3: engine: sinks (JSONL, SpacetimeDB), CLI, demo run recorded
 - [ ] M4: SpacetimeDB Rust module
