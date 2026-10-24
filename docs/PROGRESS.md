@@ -26,7 +26,7 @@ Kept current with each commit, so work can resume from any point.
 | Claude and Gemini calls | **Verified live.** Full run `live_tandem`: 300 agents, 6 rounds, 94 Gemini swarm calls, 18 Claude interviews, Claude graph and report, 0 fallbacks, about $1.31 of Claude usage |
 | Runpod calls | Written and typechecked. Not called (no endpoint provided) |
 | Bright Data, Apify, Kalshi, Polymarket | Written against the documented APIs. Hosts blocked in the sandbox. Each fetch is cached, so a first live run seeds `data/cache/live` |
-| Backtest case | `data/backtests/illustrative-notes-app.json` is fictional and labelled so. A real case needs real observed adoption data |
+| Backtest cases | `humane-ai-pin` is real, with sourced outcomes. It needs live Bright Data access for its pre-launch posts. `illustrative-notes-app` is fictional and labelled so |
 
 ## Next steps
 
