@@ -1,0 +1,50 @@
+{
+  "id": "illustrative-notes-app",
+  "realName": "Quillstone",
+  "alias": "Product Q",
+  "aliasTerms": ["Quillstone", "quillstone.app", "Quill Stone"],
+  "brief": {
+    "product": {
+      "name": "Quillstone",
+      "description": "A minimalist AI note-taking app that turns voice memos into organised notes.",
+      "category": "note taking"
+    },
+    "price": { "amount": 10, "currency": "USD", "model": "subscription_monthly" },
+    "targetMarket": "knowledge workers and freelancers",
+    "geography": "US",
+    "competitors": ["Notion", "Obsidian", "Apple Notes", "Otter"],
+    "channels": ["product_hunt", "x", "reddit", "app_store", "word_of_mouth"],
+    "launchDate": "2025-03-04",
+    "addressableMarket": 250000,
+    "population": 200,
+    "rounds": 6,
+    "monthsPerRound": 1,
+    "seed": 7,
+    "budget": {
+      "startingCash": 150000,
+      "monthlyMarketing": 8000,
+      "fixedMonthlyCosts": 15000,
+      "cogsPct": 0.22,
+      "monthlyChurn": 0.07
+    }
+  },
+  "actual": {
+    "source": "ILLUSTRATIVE: fictional product and outcome data for exercising the backtest pipeline. Replace with a real launched product and observed adoption (e.g. app-store download estimates, public MRR) before drawing conclusions.",
+    "adoption": [
+      { "month": 1, "cumulative": 0.004 },
+      { "month": 2, "cumulative": 0.009 },
+      { "month": 3, "cumulative": 0.016 },
+      { "month": 6, "cumulative": 0.034 },
+      { "month": 9, "cumulative": 0.047 },
+      { "month": 12, "cumulative": 0.055 }
+    ],
+    "topComplaints": [
+      "Subscription price too expensive compared with free note apps",
+      "Transcription accuracy and reliability problems",
+      "No export, worried about lock-in",
+      "Missing Android app"
+    ],
+    "priceOutcome": "too_expensive",
+    "notes": "Illustrative only."
+  }
+}

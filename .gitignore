@@ -1,0 +1,12 @@
+node_modules/
+dist/
+target/
+.env
+.env.local
+*.log
+.DS_Store
+__pycache__/
+.venv/
+apps/portal/src/stdb/module_bindings/
+data/cache/live/
+apps/portal/dist/

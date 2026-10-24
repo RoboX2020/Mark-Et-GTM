@@ -1,0 +1,49 @@
+{
+  "id": "humane-ai-pin",
+  "realName": "Humane Ai Pin",
+  "alias": "Product H",
+  "aliasTerms": ["Humane", "Ai Pin", "AI Pin", "humane.com", "Humane Inc", "CosmOS", "Imran Chaudhri", "Bethany Bongiorno"],
+  "brief": {
+    "product": {
+      "name": "Humane Ai Pin",
+      "description": "A screenless wearable AI assistant that clips to your clothing. You talk to it, it answers by voice, and it projects a small laser display onto your palm. It has its own phone number and data plan.",
+      "category": "AI wearable"
+    },
+    "price": { "amount": 699, "currency": "USD", "model": "one_time" },
+    "targetMarket": "US tech early adopters and professionals who want less screen time",
+    "geography": "US",
+    "competitors": ["iPhone", "Apple Watch", "ChatGPT app", "Rabbit R1", "Ray-Ban Meta smart glasses"],
+    "channels": ["x", "reddit", "tiktok", "paid_social", "word_of_mouth"],
+    "launchDate": "2024-04-11",
+    "addressableMarket": 100000,
+    "population": 300,
+    "rounds": 6,
+    "monthsPerRound": 1,
+    "seed": 2024,
+    "budget": {
+      "startingCash": 230000000,
+      "monthlyMarketing": 2000000,
+      "fixedMonthlyCosts": 10000000,
+      "cogsPct": 0.6,
+      "monthlyChurn": 0.05
+    }
+  },
+  "actual": {
+    "source": "Public reporting. Units sold: The Verge internal sales data via MacRumors (2024-08-07) and Engadget (2024-08-07): about 10,000 lifetime sales, about $9M revenue, more than $1M returned, roughly 7,000 still with customers. Earlier New York Times figure of about 10,000 sold, via Gear Patrol. Shutdown: Fortune (2025-02-19) and The Decoder: AI Pin discontinued, assets sold to HP for $116M, devices stopped working 2025-02-28. Complaints: TechRadar and Gizmodo review roundups (April 2024). Price: $699 plus $24/month, preorders from 2023-11-16 (Shacknews).",
+    "adoption": [
+      { "month": 1, "cumulative": 0.09 },
+      { "month": 4, "cumulative": 0.1 },
+      { "month": 10, "cumulative": 0.1 }
+    ],
+    "topComplaints": [
+      "Overheating during normal use",
+      "Poor battery life",
+      "Slow and unreliable AI answers",
+      "Too expensive at $699 plus a $24 monthly subscription",
+      "Laser palm display hard to see and awkward to use",
+      "No clear advantage over a smartphone"
+    ],
+    "priceOutcome": "too_expensive",
+    "notes": "Adoption is gross units sold as a share of a 100,000-unit addressable market, which was Humane's own shipping goal (only about 10% was reached). Month 1 is approximate: about 10,000 had sold by around launch, mostly preorders. Sales then stalled, and from May to August 2024 returns outpaced new sales. The budget figures in the brief are rough assumptions for the finance layer and are not scored."
+  }
+}
