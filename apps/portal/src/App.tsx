@@ -41,7 +41,11 @@ export function App() {
     tab,
     setTab: (t) => {
       setTabState(t);
-      history.replaceState(null, "", `#${t}`);
+      try {
+        history.replaceState(null, "", `#${t}`);
+      } catch {
+        /* sandboxed frames may refuse URL changes */
+      }
     },
     openAgent: (id) => setDrawer({ kind: "agent", id }),
     openEvidence: (id) => setDrawer({ kind: "evidence", id }),
@@ -130,7 +134,7 @@ function TopBar() {
     if (source !== "replay") return;
     fetchRuns().then((r) => {
       setRuns(r);
-      const pick = new URLSearchParams(location.search).get("run") ?? r.find((x) => x.id === "demo")?.id ?? r[0]?.id;
+      const pick = new URLSearchParams(location.search).get("run") ?? r.find((x) => x.id === "live_tandem")?.id ?? r.find((x) => x.id === "demo")?.id ?? r[0]?.id;
       if (pick) choose(r, pick);
     });
   }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -160,7 +164,11 @@ function TopBar() {
     player.load(await fetchRun(entry));
     const url = new URL(location.href);
     url.searchParams.set("run", id);
-    history.replaceState(null, "", url);
+    try {
+      history.replaceState(null, "", url);
+    } catch {
+      /* sandboxed frames may refuse URL changes */
+    }
   }
 
   const elapsed = player.live ? (state.lastTs ?? 0) - (state.startedAt ?? 0) : player.vt;
