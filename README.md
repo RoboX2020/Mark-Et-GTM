@@ -32,6 +32,9 @@ and compare its prediction with what actually happened, misses included.
 Every step streams through SpacetimeDB into the portal and is recorded as an
 event log. Any run can be replayed at adjustable speed, fully offline.
 
+**Live demo:** https://claude.ai/artifact/LvSX1j64PuzGrq7GRd3hhR (replays
+recorded runs, including a full run on real Claude and Gemini models).
+
 ## Quick start (offline, no keys)
 
 ```bash
