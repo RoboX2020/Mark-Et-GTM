@@ -1,0 +1,27 @@
+[
+  {
+    "cutoff": "2025-05-01T00:00:00Z",
+    "signal": { "id": "illus_fed_june", "venue": "kalshi", "question": "ILLUSTRATIVE: Will the Fed cut rates at the June meeting?", "probability": 0.18, "volume": 120000, "asOf": "2025-05-01T00:00:00Z", "category": "economy", "outcome": 0 },
+    "context": ["Fed officials signal patience on rate cuts", "Core inflation remains above target"]
+  },
+  {
+    "cutoff": "2025-05-01T00:00:00Z",
+    "signal": { "id": "illus_cpi_q2", "venue": "polymarket", "question": "ILLUSTRATIVE: Will Q2 CPI print above 3%?", "probability": 0.41, "volume": 54000, "asOf": "2025-05-01T00:00:00Z", "category": "economy", "outcome": 0 },
+    "context": ["Energy prices fall in April", "Shelter inflation sticky"]
+  },
+  {
+    "cutoff": "2025-06-01T00:00:00Z",
+    "signal": { "id": "illus_ai_model", "venue": "polymarket", "question": "ILLUSTRATIVE: Will a major lab release a new flagship model before August?", "probability": 0.72, "volume": 300000, "asOf": "2025-06-01T00:00:00Z", "category": "tech", "outcome": 1 },
+    "context": ["Rumours of an imminent model launch", "Developer conference scheduled for July"]
+  },
+  {
+    "cutoff": "2025-06-01T00:00:00Z",
+    "signal": { "id": "illus_recession", "venue": "kalshi", "question": "ILLUSTRATIVE: Will the US enter a recession in 2025?", "probability": 0.29, "volume": 800000, "asOf": "2025-06-01T00:00:00Z", "category": "economy", "outcome": 0 },
+    "context": ["Unemployment steady at 4.1%", "Consumer spending softens"]
+  },
+  {
+    "cutoff": "2025-07-01T00:00:00Z",
+    "signal": { "id": "illus_layoffs", "venue": "kalshi", "question": "ILLUSTRATIVE: Will tech layoffs in Q3 exceed Q2?", "probability": 0.47, "volume": 22000, "asOf": "2025-07-01T00:00:00Z", "category": "industry", "outcome": 1 },
+    "context": ["Several large firms announce restructuring"]
+  }
+]

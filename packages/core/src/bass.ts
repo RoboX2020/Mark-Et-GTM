@@ -77,7 +77,7 @@ export function fitBass(observed: AdoptionPoint[], opts: BassFitOptions = {}): B
     const p = Math.exp(x[0]);
     const q = Math.exp(x[1]);
     const m = sigmoid(x[2]);
-    if (p > 1 || q > 3) return 1e6;
+    if (p > 0.3 || q > 1.5 || p < 1e-5) return 1e6;
     let sse = 0;
     for (const o of pts) {
       const r = m * bassF(o.month, p, q) - o.cumulative;

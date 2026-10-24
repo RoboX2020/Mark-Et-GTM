@@ -1,0 +1,26 @@
+{
+  "product": {
+    "name": "Tandem",
+    "description": "An AI study planner that turns your syllabus and deadlines into a realistic weekly plan, then adapts when life happens.",
+    "category": "study planner"
+  },
+  "price": { "amount": 8, "currency": "USD", "model": "subscription_monthly" },
+  "targetMarket": "university students",
+  "geography": "US and UK",
+  "competitors": ["Notion", "MyStudyLife", "ChatGPT", "Todoist"],
+  "channels": ["tiktok", "reddit", "product_hunt", "app_store", "word_of_mouth"],
+  "launchDate": "2026-09-01",
+  "addressableMarket": 60000,
+  "population": 300,
+  "rounds": 6,
+  "monthsPerRound": 1,
+  "seed": 42,
+  "budget": {
+    "startingCash": 250000,
+    "monthlyMarketing": 15000,
+    "channelSplit": { "tiktok": 0.5, "reddit": 0.2, "product_hunt": 0.1, "app_store": 0.2 },
+    "fixedMonthlyCosts": 22000,
+    "cogsPct": 0.18,
+    "monthlyChurn": 0.06
+  }
+}

@@ -53,6 +53,8 @@ export interface EvidenceItem {
   publishedAt: string;
   engagement: number;
   query: string;
+  /** True for offline fixture data generated when no live/cached source was available. */
+  synthetic?: boolean;
 }
 
 export interface MarketSignal {
@@ -66,6 +68,7 @@ export interface MarketSignal {
   category: string;
   /** Resolved outcome, only for backtests of resolved markets. */
   outcome?: 0 | 1;
+  synthetic?: boolean;
 }
 
 /** A real interview used as an anchor. Stored as an aggregate summary plus short quotes. */
@@ -75,6 +78,7 @@ export interface AnchorInterview {
   summary: string;
   quotes: string[];
   statedWtp?: number;
+  synthetic?: boolean;
 }
 
 export type NodeKind = "product" | "segment" | "pain" | "competitor" | "trend" | "price_point" | "condition" | "channel";
