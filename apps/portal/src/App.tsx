@@ -12,6 +12,7 @@ import { Forecast } from "./tabs/Forecast";
 import { Report } from "./tabs/Report";
 import { Backtest } from "./tabs/Backtest";
 import { Evidence, Post } from "./tabs/Evidence";
+import { NewBrief } from "./components/NewBrief";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -110,6 +111,8 @@ function TopBar() {
   const [current, setCurrent] = useState<string>("");
   const [liveRuns, setLiveRuns] = useState<LiveRun[]>([]);
   const [liveErr, setLiveErr] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
   const live = useRef<LiveHandle | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [theme, setTheme] = useState<string>(() => {
@@ -174,6 +177,7 @@ function TopBar() {
   const elapsed = player.live ? (state.lastTs ?? 0) - (state.startedAt ?? 0) : player.vt;
 
   return (
+    <>
     <header className="topbar">
       <div className="brand">
         <span className="mark">Mark-Et</span>
@@ -181,10 +185,22 @@ function TopBar() {
       </div>
       <div className="seg">
         <button className={source === "replay" ? "on" : ""} onClick={() => setSource("replay")}>replay</button>
-        <button className={source === "live" ? "on" : ""} onClick={() => setSource("live")} title={liveAvailable() ? "Subscribe to SpacetimeDB" : "Generate SpacetimeDB bindings first"}>
+        <button
+          className={source === "live" ? "on" : ""}
+          onClick={() => {
+            if (!liveAvailable()) {
+              setNote("Live mode needs a SpacetimeDB server. Recorded runs keep playing here.");
+              return;
+            }
+            setNote(null);
+            setSource("live");
+          }}
+          title={liveAvailable() ? "Subscribe to SpacetimeDB" : "SpacetimeDB bindings are not in this build"}
+        >
           live
         </button>
       </div>
+      {source === "replay" && note && <span className="top-note">{note}</span>}
       {source === "replay" ? (
         <>
           <select className="select" value={current} onChange={(e) => choose(runs, e.target.value)}>
@@ -244,15 +260,18 @@ function TopBar() {
           </span>
         </>
       )}
+      <button className="btn" onClick={() => setBriefOpen(true)}>New brief</button>
       <button className="btn icon" onClick={() => setTheme(theme === "auto" ? "dark" : theme === "dark" ? "light" : "auto")} title={`Theme: ${theme}`}>
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
           <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
           {theme !== "light" && <path d={theme === "dark" ? "M8 1.8a6.2 6.2 0 0 0 0 12.4z" : "M8 1.8a6.2 6.2 0 0 1 0 12.4z"} fill="currentColor" />}
         </svg>
       </button>
-    </header>
-  );
-}
+      </header>
+      {briefOpen && <NewBrief onClose={() => setBriefOpen(false)} />}
+    </>
+    );
+  }
 
 function Drawer({ kind, id, onClose }: { kind: "agent" | "evidence"; id: string; onClose: () => void }) {
   const { state } = useRun();

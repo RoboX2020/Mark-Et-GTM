@@ -13,6 +13,8 @@ Kept current with each commit, so work can resume from any point.
 - [x] M6: backtesting (anonymised product backtest + prediction-market Brier backtest)
 - [x] M7: Fetch.ai uAgents bridge (verified: 80 agents, real agent-to-agent delivery)
 - [x] CI: typecheck, unit + integration tests, portal build, cargo check, bridge compile
+- [x] Portal layout: top bar and playback controls stay on screen from phone width up, and the activity rail stays reachable below 1100px. `vercel.json` builds `@market/portal` as a static site.
+- [x] Bright Data discovery payloads match Reddit and TikTok. Apify is the backup when a Bright Data source is empty. SpacetimeDB TypeScript bindings are generated into the portal. `.env` is no longer tracked.
 
 ## What is verified vs. not
 

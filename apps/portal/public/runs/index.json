@@ -1,5 +1,13 @@
 [
   {
+    "id": "live_smoke",
+    "label": "Tandem \u00b7 live smoke (your keys)",
+    "kind": "simulation",
+    "mode": "live",
+    "file": "live_smoke.jsonl",
+    "createdAt": "2026-10-25T01:14:00.000Z"
+  },
+  {
     "id": "live_tandem",
     "label": "Tandem \u00b7 live models (Claude + Gemini)",
     "kind": "simulation",
