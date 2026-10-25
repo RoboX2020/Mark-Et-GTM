@@ -16,13 +16,14 @@ function useWidth(initial = 640): [React.RefObject<SVGSVGElement>, number] {
   return [ref, w];
 }
 
-// Hand-drawn SVG charts: quiet axes, one ink line, clay only for live points.
+// Hand-drawn SVG charts: hairline axes, cobalt for the forecast, ink for what really happened.
 
 interface Series {
   points: { x: number; y: number }[];
   kind: "curve" | "alt" | "actual";
   dots?: boolean;
   area?: boolean;
+  color?: string;
 }
 
 function scale(d0: number, d1: number, r0: number, r1: number) {
@@ -36,6 +37,8 @@ function niceMax(v: number): number {
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
 }
 
+export { niceMax };
+
 export function LineChart({
   series,
   xMax,
@@ -43,6 +46,7 @@ export function LineChart({
   height = 240,
   markerX,
   yFloor = 0,
+  yMax: fixedMax,
 }: {
   series: Series[];
   xMax: number;
@@ -51,15 +55,18 @@ export function LineChart({
   markerX?: number;
   /** Minimum top of the y axis, so near-empty charts don't collapse to one value. */
   yFloor?: number;
+  /** Fixed top of the y axis, so several charts can be read on one scale. */
+  yMax?: number;
 }) {
   const [ref, W] = useWidth();
   const H = height;
   const pad = { l: 52, r: 16, t: 14, b: 30 };
-  const yMax = niceMax(Math.max(yFloor, 1e-9, ...series.flatMap((s) => s.points.map((p) => p.y))) * 1.08);
+  const yMax = fixedMax ?? niceMax(Math.max(yFloor, 1e-9, ...series.flatMap((s) => s.points.map((p) => p.y))) * 1.08);
   const x = scale(0, xMax, pad.l, W - pad.r);
   const y = scale(0, yMax, H - pad.b, pad.t);
   const ticksY = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax);
-  const ticksX = Array.from({ length: Math.min(xMax, 12) + 1 }, (_, i) => Math.round((i * xMax) / Math.min(xMax, 12)));
+  const stepX = xMax <= 12 ? 1 : Math.ceil(xMax / 6);
+  const ticksX = Array.from({ length: Math.floor(xMax / stepX) + 1 }, (_, i) => i * stepX);
   const path = (pts: { x: number; y: number }[]) => pts.map((p, i) => `${i ? "L" : "M"}${x(p.x).toFixed(1)},${y(p.y).toFixed(1)}`).join("");
   return (
     <svg ref={ref} className="chart" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img">
@@ -80,9 +87,9 @@ export function LineChart({
       {markerX !== undefined && <line className="axis" x1={x(markerX)} x2={x(markerX)} y1={pad.t} y2={H - pad.b} strokeDasharray="2 4" />}
       {series.map((s, i) => (
         <g key={`${i}-${s.points.length}`}>
-          {s.area && s.points.length > 1 && <path className="area" d={`${path(s.points)}L${x(s.points[s.points.length - 1].x)},${y(0)}L${x(s.points[0].x)},${y(0)}Z`} />}
-          {s.points.length > 1 && <path pathLength={1} className={`curve ${s.kind === "curve" ? "" : s.kind} draw`} d={path(s.points)} />}
-          {s.dots && s.points.map((p, j) => <circle key={j} className={`pt ${s.kind === "actual" ? "actual" : ""}`} cx={x(p.x)} cy={y(p.y)} r={3.6} />)}
+          {s.area && s.points.length > 1 && <path className="area" style={s.color ? { fill: s.color } : undefined} d={`${path(s.points)}L${x(s.points[s.points.length - 1].x)},${y(0)}L${x(s.points[0].x)},${y(0)}Z`} />}
+          {s.points.length > 1 && <path pathLength={1} className={`curve ${s.kind === "curve" ? "" : s.kind} draw`} style={s.color ? { stroke: s.color } : undefined} d={path(s.points)} />}
+          {s.dots && s.points.map((p, j) => <circle key={j} className={`pt ${s.kind === "actual" ? "actual" : ""}`} cx={x(p.x)} cy={y(p.y)} r={3.6} style={s.color ? { stroke: s.kind === "actual" ? undefined : s.color, fill: s.kind === "actual" ? s.color : undefined } : undefined} />)}
         </g>
       ))}
     </svg>
@@ -111,8 +118,8 @@ export function FinanceChart({ months, fmt }: { months: FinanceMonth[]; fmt: (v:
       ))}
       {months.map((m) => (
         <g key={m.month}>
-          <rect x={x(m.month) - bw - 1} y={y(m.revenue)} width={bw} height={Math.max(0, y(0) - y(m.revenue))} rx={2} fill="var(--pos)" opacity={0.75} />
-          <rect x={x(m.month) + 1} y={y(m.marketing + m.fixed + m.cogs)} width={bw} height={Math.max(0, y(0) - y(m.marketing + m.fixed + m.cogs))} rx={2} fill="var(--ink-4)" opacity={0.7} />
+          <rect x={x(m.month) - bw - 1} y={y(m.revenue)} width={bw} height={Math.max(0, y(0) - y(m.revenue))} fill="var(--pos)" opacity={0.75} />
+          <rect x={x(m.month) + 1} y={y(m.marketing + m.fixed + m.cogs)} width={bw} height={Math.max(0, y(0) - y(m.marketing + m.fixed + m.cogs))} fill="var(--ink-4)" opacity={0.7} />
           <text className="tick" x={x(m.month)} y={H - 10} textAnchor="middle">
             {m.month}
           </text>
