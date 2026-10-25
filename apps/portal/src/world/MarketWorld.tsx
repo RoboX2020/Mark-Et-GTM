@@ -11,6 +11,32 @@ import "./world.css";
 const SPEEDS = [0.5, 1, 2, 4, 8];
 /** Outside the social rounds (ingest, interviews, report writing) the world fast-forwards. */
 const BOOST = 40;
+/** Real milliseconds the town holds after residents move in, so the launch reads as a moment. */
+const INTRO_MS = 2600;
+
+/**
+ * Plays the social rounds at the chosen speed and fast-forwards everything
+ * else (reading the market, interviews, report writing), with a short hold
+ * before round 1 for the launch.
+ */
+function withPacing(player: Player): Player {
+  let seen: RunState | null = null;
+  let introEnd = 0;
+  player.boost = (s) => {
+    if (s !== seen) {
+      seen = s;
+      introEnd = 0;
+    }
+    const total = s.brief?.rounds ?? 6;
+    if (s.currentRound > 0 && s.rounds.length < total) return 1;
+    if (s.currentRound === 0 && s.personas.size && s.stages.population.status === "done") {
+      if (!introEnd) introEnd = performance.now() + INTRO_MS;
+      if (performance.now() < introEnd) return 0;
+    }
+    return BOOST;
+  };
+  return player;
+}
 
 interface TownRun {
   key: number;
@@ -68,7 +94,6 @@ export default function MarketWorld({ onClose }: { onClose: () => void }) {
     }));
     if (t.abort.signal.aborted) return;
     patchTown(t.key, { source, notes: fallbacks });
-    t.player.setSpeed(speedRef.current);
     if (source.envs) {
       t.player.load(source.envs);
       return;
@@ -86,16 +111,13 @@ export default function MarketWorld({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const speedRef = useRef(speed);
-  speedRef.current = speed;
-
   function launch() {
     towns.forEach(stopTown);
     const inputs = compare ? forms : [forms[0]];
     const next = inputs.map((input) => ({
       key: ++keyRef.current,
       input: { ...input, name: input.name.trim() || "Your product" },
-      player: new Player(),
+      player: withPacing(new Player()),
       source: null,
       notes: [],
       error: null,
@@ -107,20 +129,9 @@ export default function MarketWorld({ onClose }: { onClose: () => void }) {
     next.forEach((t) => void boot(t));
   }
 
-  // Fast-forward the slow non-visual stages so the town spends its time on the rounds.
   useEffect(() => {
-    if (phase !== "play") return;
-    const id = setInterval(() => {
-      for (const t of towns) {
-        const s = t.player.state;
-        const total = s.brief?.rounds ?? 6;
-        const inRounds = s.currentRound > 0 && s.rounds.length < total;
-        const want = inRounds || t.player.streaming ? speed : Math.max(speed, BOOST);
-        if (t.player.speed !== want) t.player.setSpeed(want);
-      }
-    }, 150);
-    return () => clearInterval(id);
-  }, [phase, towns, speed]);
+    for (const t of towns) t.player.setSpeed(speed);
+  }, [towns, speed]);
 
   const allPlaying = usePlayingFlag(towns);
 
@@ -255,6 +266,7 @@ function LaunchPanel(props: {
   onResume: () => void;
 }) {
   const { forms, setForms, compare } = props;
+  const [active, setActive] = useState<0 | 1>(0);
   const [url, setUrl] = useState(engineUrl());
   const [showEngine, setShowEngine] = useState(Boolean(engineUrl()));
   const set = (i: 0 | 1, patch: Partial<WorldBriefInput>) => setForms((i === 0 ? [{ ...forms[0], ...patch }, forms[1]] : [forms[0], { ...forms[1], ...patch }]) as [WorldBriefInput, WorldBriefInput]);
@@ -278,9 +290,9 @@ function LaunchPanel(props: {
         </div>
 
         <div className="w-presets">
-          <span className="w-label">Try</span>
+          <span className="w-label">{compare ? `Try in Town ${active === 0 ? "A" : "B"}` : "Try"}</span>
           {PRESETS.map((p) => (
-            <button key={p.tag} className="w-chip" onClick={() => set(0, { name: p.name, price: p.price, description: p.description, priceModel: p.priceModel ?? "one_time" })}>
+            <button key={p.tag} className="w-chip" onClick={() => set(compare ? active : 0, { name: p.name, price: p.price, description: p.description, priceModel: p.priceModel ?? "one_time" })}>
               {p.tag}
             </button>
           ))}
@@ -288,7 +300,14 @@ function LaunchPanel(props: {
 
         <div className={`w-forms ${compare ? "two" : ""}`}>
           {(compare ? [0, 1] : [0]).map((i) => (
-            <ProductForm key={i} title={compare ? (i === 0 ? "Town A" : "Town B") : null} value={forms[i]} onChange={(p) => set(i as 0 | 1, p)} />
+            <ProductForm
+              key={i}
+              title={compare ? (i === 0 ? "Town A" : "Town B") : null}
+              active={compare && active === i}
+              onFocus={() => setActive(i as 0 | 1)}
+              value={forms[i]}
+              onChange={(p) => set(i as 0 | 1, p)}
+            />
           ))}
         </div>
 
@@ -362,9 +381,21 @@ function LaunchPanel(props: {
   );
 }
 
-function ProductForm({ title, value, onChange }: { title: string | null; value: WorldBriefInput; onChange: (p: Partial<WorldBriefInput>) => void }) {
+function ProductForm({
+  title,
+  active,
+  onFocus,
+  value,
+  onChange,
+}: {
+  title: string | null;
+  active: boolean;
+  onFocus: () => void;
+  value: WorldBriefInput;
+  onChange: (p: Partial<WorldBriefInput>) => void;
+}) {
   return (
-    <div className="w-form">
+    <div className={`w-form ${active ? "active" : ""}`} onFocusCapture={onFocus} onClick={onFocus}>
       {title && <div className="w-form-title">{title}</div>}
       <label className="w-field">
         <span className="w-label">Product name</span>
@@ -558,7 +589,7 @@ function AgentInfo({ state, id, price }: { state: RunState; id: string; price: n
       <div className="muted">
         {p.role} · {p.ageBand}
       </div>
-      <div className={`w-state ${mood}`}>{STATE_LABEL[d?.state ?? "unaware"]}{d ? ` · round ${d.round}` : ""}</div>
+      <div className={`w-state ${mood}`}>{STATE_LABEL[d?.state ?? "unaware"]}{d && d.round > 0 ? ` · round ${d.round}` : ""}</div>
       <div className="w-wtp">
         <div>
           <span className="w-label">Willing to pay</span>
@@ -596,7 +627,7 @@ function AgentInfo({ state, id, price }: { state: RunState; id: string; price: n
         </div>
       )}
       {d && d.influencedBy.length > 0 && <div className="muted small">Heard about it from {d.influencedBy.map((x) => state.personas.get(x)?.name ?? x).join(", ")}.</div>}
-      {!d && <p className="muted">{p.bio}</p>}
+      {!d?.reasoning && <p className="w-summary">{p.bio}</p>}
     </div>
   );
 }

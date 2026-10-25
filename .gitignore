@@ -10,3 +10,4 @@ __pycache__/
 data/cache/live/
 apps/portal/dist/
 .vercel/
+data/runs/world_*.jsonl

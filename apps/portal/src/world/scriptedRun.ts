@@ -78,7 +78,7 @@ export function scriptedBrief(input: WorldBriefInput): Brief {
     competitors: ["the status quo", "a free alternative"],
     channels: ["tiktok", "reddit", "x", "word_of_mouth"],
     launchDate: new Date().toISOString().slice(0, 10),
-    addressableMarket: 50_000,
+    addressableMarket: 20_000,
     population: Math.min(600, Math.max(60, input.population ?? 240)),
     rounds: 6,
     monthsPerRound: 1,
