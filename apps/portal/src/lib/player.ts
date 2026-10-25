@@ -62,6 +62,7 @@ export class Player {
   load(envs: EventEnvelope[], { autoplay = true } = {}) {
     this.stop();
     this.live = false;
+    this.open = false;
     this.envs = envs;
     this.at = [];
     let t = 0;
@@ -88,7 +89,7 @@ export class Player {
 
   play() {
     if (this.live || this.playing) return;
-    if (this.idx >= this.envs.length) this.reset();
+    if (this.idx >= this.envs.length && !this.open) this.reset();
     this.playing = true;
     this.last = performance.now();
     const loop = (now: number) => {
@@ -127,13 +128,35 @@ export class Player {
 
   private advance(dt: number) {
     this.vt += dt;
+    if (this.open) this.vt = Math.min(this.vt, this.duration);
     let n = 0;
     while (this.idx < this.envs.length && this.at[this.idx] <= this.vt) {
       applyEvent(this.state, this.envs[this.idx++]);
       n++;
     }
-    if (this.idx >= this.envs.length) this.pause();
+    if (this.idx >= this.envs.length && !this.open) this.pause();
     if (n) this.notify();
+  }
+
+  // ── Streamed replay: events arrive over time but keep the replay clock ──
+  private open = false;
+  /** Starts an empty replay that grows with `append`; speed and seek still apply. */
+  beginStream() {
+    this.load([], { autoplay: false });
+    this.open = true;
+    this.play();
+  }
+  append(env: EventEnvelope) {
+    const n = this.envs.length;
+    const t = n ? this.at[n - 1] + Math.min(MAX_GAP_MS, Math.max(0, env.ts - this.envs[n - 1].ts)) : 0;
+    this.envs.push(env);
+    this.at.push(t);
+  }
+  endStream() {
+    this.open = false;
+  }
+  get streaming() {
+    return this.open;
   }
 
   // ── Live (SpacetimeDB) ──────────────────────────────────────────

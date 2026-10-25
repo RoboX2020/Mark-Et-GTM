@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DateCtx, NavCtx, PlayerCtx, useDateFilter, useNav, useRun, type Nav, type TabId } from "./lib/context";
 import { fetchRun, fetchRuns, loadLocalFile, Player, type RunEntry } from "./lib/player";
 import { connectLive, liveAvailable, type LiveHandle, type LiveRun } from "./lib/spacetime";
@@ -13,6 +13,8 @@ import { Report } from "./tabs/Report";
 import { Backtest } from "./tabs/Backtest";
 import { Evidence, Post } from "./tabs/Evidence";
 import { NewBrief } from "./components/NewBrief";
+
+const MarketWorld = lazy(() => import("./world/MarketWorld"));
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -56,6 +58,18 @@ export function App() {
   const [tab, setTabState] = useState<TabId>(readHash());
   const [drawer, setDrawer] = useState<{ kind: "agent" | "evidence"; id: string } | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [world, setWorldState] = useState(() => new URLSearchParams(location.search).has("world"));
+  const setWorld = (open: boolean) => {
+    setWorldState(open);
+    const url = new URL(location.href);
+    if (open) url.searchParams.set("world", "1");
+    else url.searchParams.delete("world");
+    try {
+      history.replaceState(null, "", url);
+    } catch {
+      /* sandboxed frames may refuse URL changes */
+    }
+  };
 
   const nav: Nav = {
     tab,
@@ -78,7 +92,7 @@ export function App() {
       <NavCtx.Provider value={nav}>
         <RunDate>
         <div className="shell">
-          <TopBar />
+          <TopBar onWorld={() => setWorld(true)} />
           <div className="body">
             <main className="main">
               <div className="main-inner">
@@ -97,6 +111,11 @@ export function App() {
           </div>
         </div>
         {drawer && <Drawer kind={drawer.kind} id={drawer.id} onClose={() => setDrawer(null)} />}
+        {world && (
+          <Suspense fallback={<div className="world-loading">Building the town…</div>}>
+            <MarketWorld onClose={() => setWorld(false)} />
+          </Suspense>
+        )}
         </RunDate>
       </NavCtx.Provider>
     </PlayerCtx.Provider>
@@ -125,7 +144,7 @@ function Tabs() {
 }
 
 
-function TopBar() {
+function TopBar({ onWorld }: { onWorld: () => void }) {
   const { state, player } = useRun();
   const date = useDateFilter();
   const [source, setSource] = useState<"replay" | "live">(import.meta.env.VITE_STREAM_SOURCE === "spacetime" ? "live" : "replay");
@@ -300,6 +319,7 @@ function TopBar() {
           </span>
         </>
       )}
+      <button className="btn world-btn" onClick={onWorld} title="Watch a launch play out in a 3D town">Market World</button>
       <button className="btn" onClick={() => setBriefOpen(true)}>New brief</button>
       <button className="btn icon" onClick={() => setTheme(theme === "auto" ? "dark" : theme === "dark" ? "light" : "auto")} title={`Theme: ${theme}`}>
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
