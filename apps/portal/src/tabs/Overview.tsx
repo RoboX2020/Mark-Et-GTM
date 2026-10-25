@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { useNav, useRun } from "../lib/context";
+import { useDateFilter, useNav, useRun } from "../lib/context";
 import { int, money, pct, STATE_LABEL } from "../lib/format";
 import { LineChart } from "../components/Charts";
 import type { AdoptionState } from "@market/core";
 
 export function Overview() {
   const { state } = useRun();
+  const date = useDateFilter();
   const nav = useNav();
   const b = state.brief;
   const counts = useMemo(() => {
@@ -26,12 +27,18 @@ export function Overview() {
       <div className="hero">
         <div>
           <div className="eyebrow">{state.backtestCaseId ? "Backtest" : "Launch simulation"} · {state.mode} mode</div>
-          <h1 style={{ marginTop: 6 }}>{b.product.name}</h1>
+          <h1 style={{ marginTop: 6 }}>{state.backtest?.realName ?? b.product.name}</h1>
           <p>{b.product.description}</p>
+          {state.backtest && (
+            <p className="muted" style={{ fontSize: 14 }}>
+              The model only knew this as {state.backtest.alias}. Every post it saw is dated on or before {state.backtest.cutoff.slice(0, 10)}.
+            </p>
+          )}
           <div className="row wrap" style={{ marginTop: 10 }}>
             <span className="chip">{money(b.price.amount, b)} · {b.price.model.replaceAll("_", " ")}</span>
             <span className="chip">{b.targetMarket}</span>
             <span className="chip">launch {b.launchDate}</span>
+            {date.cutoff && <span className="chip mono">data through {date.through || date.cutoff}</span>}
             {b.channels.map((c) => (
               <span key={c} className="chip mono">{c.replaceAll("_", " ")}</span>
             ))}

@@ -76,7 +76,9 @@ async function main() {
       const caseId = positionals[0] ?? "illustrative-notes-app";
       const bt = readJson<BacktestCase>(`data/backtests/${caseId}.json`);
       const brief = tweak(bt.brief);
-      const label = `Backtest · ${bt.alias}`;
+      const label =
+        values.label ??
+        (cfg.mode === "live" ? `${bt.realName} · live models (Claude + Gemini)` : `Backtest · ${bt.alias}`);
       console.log(`▶ backtest ${caseId} as "${bt.alias}" mode=${cfg.mode}`);
       const { runId, file } = await runSimulation(cfg, { brief, label, backtest: bt, runId: values.id ?? `backtest_${caseId}` });
       console.log(`✓ ${runId} → ${path.relative(REPO_ROOT, file)}`);

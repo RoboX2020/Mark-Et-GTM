@@ -1,7 +1,31 @@
 [
   {
+    "id": "backtest_meta-rayban",
+    "label": "Ray-Ban Meta smart glasses · live models (Claude + Gemini)",
+    "kind": "backtest",
+    "mode": "live",
+    "file": "backtest_meta-rayban.jsonl",
+    "createdAt": "2026-10-25T04:45:27.840Z"
+  },
+  {
+    "id": "backtest_humane-ai-pin",
+    "label": "Humane Ai Pin · live models (Claude + Gemini)",
+    "kind": "backtest",
+    "mode": "live",
+    "file": "backtest_humane-ai-pin.jsonl",
+    "createdAt": "2026-10-25T04:45:24.858Z"
+  },
+  {
+    "id": "backtest_rabbit-r1",
+    "label": "Rabbit R1 · live models (Claude + Gemini)",
+    "kind": "backtest",
+    "mode": "live",
+    "file": "backtest_rabbit-r1.jsonl",
+    "createdAt": "2026-10-25T04:45:23.644Z"
+  },
+  {
     "id": "live_smoke",
-    "label": "Tandem \u00b7 live smoke (your keys)",
+    "label": "Tandem · live smoke (your keys)",
     "kind": "simulation",
     "mode": "live",
     "file": "live_smoke.jsonl",
@@ -9,7 +33,7 @@
   },
   {
     "id": "live_tandem",
-    "label": "Tandem \u00b7 live models (Claude + Gemini)",
+    "label": "Tandem · live models (Claude + Gemini)",
     "kind": "simulation",
     "mode": "live",
     "file": "live_tandem.jsonl",
@@ -25,7 +49,7 @@
   },
   {
     "id": "backtest_illustrative-notes-app",
-    "label": "Backtest \u00b7 Product Q",
+    "label": "Backtest · Product Q",
     "kind": "backtest",
     "mode": "cache",
     "file": "backtest_illustrative-notes-app.jsonl",
@@ -33,7 +57,7 @@
   },
   {
     "id": "demo",
-    "label": "Tandem \u00b7 offline demo (mock models)",
+    "label": "Tandem · offline demo (mock models)",
     "kind": "simulation",
     "mode": "mock",
     "file": "demo.jsonl",

@@ -8,6 +8,8 @@ entry replaced by `alias`. The scorer then compares the prediction with
 | Case | Real or illustrative | Outcome data |
 |---|---|---|
 | `humane-ai-pin` | **Real.** Humane Ai Pin, which shipped 2024-04-11 | About 10,000 lifetime sales against a 100,000 goal. Returns outpaced sales May–Aug 2024. Shut down Feb 2025 (sources in the file) |
+| `meta-rayban` | **Real.** Ray-Ban Meta glasses, shipping 2023-10-17 | More than 1 million units in 2024 and more than 2 million cumulative by February 2025 (sources in the file) |
+| `rabbit-r1` | **Real.** Rabbit R1, shipping 2024-04-24 | About 130,000 sold by June 2024, then flat, with roughly 5,000 concurrent users by September (sources in the file) |
 | `illustrative-notes-app` | Fictional, for exercising the pipeline | Made up; labelled ILLUSTRATIVE |
 
 Run one:

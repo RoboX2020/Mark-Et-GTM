@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { NavCtx, PlayerCtx, useNav, useRun, type Nav, type TabId } from "./lib/context";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { DateCtx, NavCtx, PlayerCtx, useDateFilter, useNav, useRun, type Nav, type TabId } from "./lib/context";
 import { fetchRun, fetchRuns, loadLocalFile, Player, type RunEntry } from "./lib/player";
 import { connectLive, liveAvailable, type LiveHandle, type LiveRun } from "./lib/spacetime";
 import { clock } from "./lib/format";
@@ -26,6 +26,25 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 const SPEEDS = [1, 4, 10, 40, 200];
+
+const PREFERRED_RUNS = ["backtest_humane-ai-pin", "backtest_meta-rayban", "backtest_rabbit-r1", "live_tandem", "demo"];
+
+function RunDate({ children }: { children: ReactNode }) {
+  const { state } = useRun();
+  const [boundRun, setBoundRun] = useState<string | null>(null);
+  const [through, setThrough] = useState("");
+  if (state.runId !== boundRun) {
+    setBoundRun(state.runId);
+    setThrough((state.cutoff ?? "").slice(0, 10));
+  } else if (!through && state.cutoff) {
+    setThrough(state.cutoff.slice(0, 10));
+  }
+  return (
+    <DateCtx.Provider value={{ through, setThrough, cutoff: (state.cutoff ?? "").slice(0, 10) }}>
+      {children}
+    </DateCtx.Provider>
+  );
+}
 
 function readHash(): TabId {
   const h = location.hash.replace("#", "") as TabId;
@@ -57,6 +76,7 @@ export function App() {
   return (
     <PlayerCtx.Provider value={player}>
       <NavCtx.Provider value={nav}>
+        <RunDate>
         <div className="shell">
           <TopBar />
           <div className="body">
@@ -77,6 +97,7 @@ export function App() {
           </div>
         </div>
         {drawer && <Drawer kind={drawer.kind} id={drawer.id} onClose={() => setDrawer(null)} />}
+        </RunDate>
       </NavCtx.Provider>
     </PlayerCtx.Provider>
   );
@@ -106,6 +127,7 @@ function Tabs() {
 
 function TopBar() {
   const { state, player } = useRun();
+  const date = useDateFilter();
   const [source, setSource] = useState<"replay" | "live">(import.meta.env.VITE_STREAM_SOURCE === "spacetime" ? "live" : "replay");
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [current, setCurrent] = useState<string>("");
@@ -138,7 +160,10 @@ function TopBar() {
     if (source !== "replay") return;
     fetchRuns().then((r) => {
       setRuns(r);
-      const pick = new URLSearchParams(location.search).get("run") ?? r.find((x) => x.id === "live_tandem")?.id ?? r.find((x) => x.id === "demo")?.id ?? r[0]?.id;
+      const pick =
+        new URLSearchParams(location.search).get("run") ??
+        PREFERRED_RUNS.map((id) => r.find((x) => x.id === id)).find(Boolean)?.id ??
+        r[0]?.id;
       if (pick) choose(r, pick);
     });
   }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -209,6 +234,12 @@ function TopBar() {
           live
         </button>
       </div>
+      {date.cutoff && (
+        <label className="field date-filter" title="Hide posts published after this day. The forecast was computed using only data on or before the pre-launch cutoff.">
+          Data through
+          <input type="date" max={date.cutoff} value={date.through || date.cutoff} onChange={(e) => date.setThrough(e.target.value)} />
+        </label>
+      )}
       {source === "replay" && note && <span className="top-note">{note}</span>}
       {source === "replay" ? (
         <>
