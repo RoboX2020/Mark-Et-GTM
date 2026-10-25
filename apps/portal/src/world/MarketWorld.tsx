@@ -1,9 +1,11 @@
-import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PriceModel, RunState } from "@market/core";
 import { Player } from "../lib/player";
 import { useNav, useRun } from "../lib/context";
 import { Town, MOOD_COLOR, PALETTE, hoodsOf, type Selection } from "./Town";
-import { countMoods, moodOf, topObjection, usePlayerVersion, verdictOf } from "./useWorld";
+import { compact as compactNum, countMoods, moodOf, narrate, segmentStats, topObjection, usePlayersVersion, usePlayerVersion, verdictOf } from "./useWorld";
+import { BarGroup } from "../components/Bars";
+import { OUTCOME_TONE, outcomeFor } from "../lib/outcomes";
 import { engineUrl, PRESETS, resolveSource, saveEngineUrl, type RunSource, type SourceMode } from "./sources";
 import { scriptedRun, type WorldBriefInput } from "./scriptedRun";
 import "./world.css";
@@ -134,6 +136,7 @@ export default function MarketWorld({ onClose }: { onClose: () => void }) {
   }, [towns, speed]);
 
   const allPlaying = usePlayingFlag(towns);
+  const players = useMemo(() => towns.map((t) => t.player), [towns]);
 
   function togglePlay() {
     const anyPlaying = towns.some((t) => t.player.playing);
@@ -202,9 +205,18 @@ export default function MarketWorld({ onClose }: { onClose: () => void }) {
                     onSelect={(s) => setSelections((cur) => cur.map((c, j) => (j === i ? s : c)))}
                     onOpenReport={() => openReport(t)}
                     autoOrbit={orbit}
+                    compact={towns.length > 1}
                   />
                 </WorldBoundary>
-                <Hud town={t} compact={towns.length > 1} label={towns.length > 1 ? (i === 0 ? "Town A" : "Town B") : null} />
+                <Caption player={t.player} compact={towns.length > 1} />
+                <Hud
+                  town={t}
+                  peers={players}
+                  compact={towns.length > 1}
+                  label={towns.length > 1 ? (i === 0 ? "Town A" : "Town B") : null}
+                  onHood={(id) => setSelections((cur) => cur.map((c, j) => (j === i ? { kind: "hood", id } : c)))}
+                />
+                {!selections[i] && <ResultPanel town={t} compact={towns.length > 1} onOpenReport={() => openReport(t)} />}
                 {selections[i] && (
                   <SelectionPanel
                     player={t.player}
@@ -216,6 +228,7 @@ export default function MarketWorld({ onClose }: { onClose: () => void }) {
               </div>
             ))}
           </div>
+          {towns.length > 1 && <HeadToHead towns={towns} />}
           <div className="w-controls">
             <button className="w-btn icon" onClick={togglePlay} aria-label={allPlaying ? "Pause" : "Play"}>
               {allPlaying ? "❚❚" : "▶"}
@@ -437,17 +450,18 @@ function ProductForm({
 
 // ── HUD ─────────────────────────────────────────────────────────────
 
-function Hud({ town, compact, label }: { town: TownRun; compact: boolean; label: string | null }) {
-  usePlayerVersion(town.player);
+function Hud({ town, peers, compact, label, onHood }: { town: TownRun; peers: Player[]; compact: boolean; label: string | null; onHood: (id: string) => void }) {
+  usePlayersVersion(peers);
   const s = town.player.state;
   const c = countMoods(s);
   const total = s.brief?.rounds ?? 6;
   const mpr = s.brief?.monthsPerRound ?? 1;
-  const obj = topObjection(s);
   const stage = currentStage(s);
-  const verdict = s.status === "ok" ? verdictOf(s) : null;
   const [showNotes, setShowNotes] = useState(false);
   const src = town.source;
+  const hoods = hoodsOf(s);
+  const stats = segmentStats(s, hoods);
+  const yMax = sharedCurveMax(peers.map((p) => p.state));
 
   return (
     <div className={`w-hud ${compact ? "compact" : ""}`}>
@@ -472,38 +486,204 @@ function Hud({ town, compact, label }: { town: TownRun; compact: boolean; label:
         <div className="w-round">
           {s.currentRound > 0 ? (
             <>
-              <span className="w-round-big">Round {Math.min(s.currentRound, total)}</span>
-              <span className="muted"> / {total} · month {Math.min(s.currentRound, total) * mpr}</span>
+              <span className="w-round-big">Month {Math.min(s.currentRound, total) * mpr}</span>
+              <span className="muted"> · round {Math.min(s.currentRound, total)} of {total}</span>
             </>
           ) : (
             <span className="muted">{s.status === "idle" ? "Waiting for the run…" : `Setting up: ${stage}`}</span>
           )}
-          {s.currentRound > 0 && s.rounds.length >= total && s.status === "running" && <span className="muted"> · writing the report</span>}
         </div>
         <div className="w-counts">
-          <Count color={MOOD_COLOR.adopt} sign="+" label="adopt" n={c.adopt} />
-          <Count color={MOOD_COLOR.wait} sign="?" label="wait" n={c.wait} />
-          <Count color={MOOD_COLOR.reject} sign="–" label="reject" n={c.reject} />
-          <span className="w-count other" title="Not reached yet (unaware or only aware)">
+          <Count color={MOOD_COLOR.adopt} sign="+" label="bought" n={c.adopt} />
+          <Count color={MOOD_COLOR.wait} sign="?" label="thinking" n={c.wait} />
+          <Count color={MOOD_COLOR.reject} sign="–" label="said no" n={c.reject} />
+          <span className="w-count other" title="Has not heard of it yet, or only just heard">
             {c.other} <small>not reached</small>
           </span>
         </div>
-        <MiniCurve state={s} />
-        {obj && (
-          <div className="w-objection">
-            <span className="w-label">Top objection so far</span>
-            <span>“{obj.text}”</span>
-            <span className="muted mono"> ×{obj.count}</span>
+        <MiniCurve state={s} yMax={yMax} shared={peers.length > 1} />
+        {stats.length > 0 && (
+          <div className="w-who">
+            <div className="w-who-head">
+              <span className="w-label">Who's buying, by customer group</span>
+              <span className="w-label">bought</span>
+            </div>
+            {[...stats]
+              .sort((x, y) => y.counts.adopt / Math.max(1, y.counts.total) - x.counts.adopt / Math.max(1, x.counts.total))
+              .map((g) => {
+                const idx = hoods.findIndex((h) => h.id === g.id);
+                const w = (n: number) => `${g.counts.total ? (n / g.counts.total) * 100 : 0}%`;
+                return (
+                  <button key={g.id} className="w-who-row" onClick={() => onHood(g.id)} title={g.objection ? `Top objection: ${g.objection}` : g.label}>
+                    <span className="w-who-swatch" style={{ background: PALETTE[idx % PALETTE.length] }} />
+                    <span className="w-who-name">{g.label}</span>
+                    <span className="w-who-bar">
+                      <i style={{ width: w(g.counts.adopt), background: MOOD_COLOR.adopt }} />
+                      <i style={{ width: w(g.counts.wait), background: MOOD_COLOR.wait }} />
+                      <i style={{ width: w(g.counts.reject), background: MOOD_COLOR.reject }} />
+                    </span>
+                    <span className="w-who-n mono">
+                      {g.counts.adopt}/{g.counts.total}
+                      {g.fresh > 0 && s.status === "running" && <em> +{g.fresh}</em>}
+                    </span>
+                  </button>
+                );
+              })}
           </div>
         )}
-        {verdict && (
-          <div className={`w-hud-verdict ${verdict.tone}`}>
-            <strong>{verdict.headline}</strong> <span>{verdict.detail}</span>
+        {!compact && (
+          <div className="w-legend">
+            <span><i className="w-count-icon" style={{ background: MOOD_COLOR.adopt }}>+</i> bought</span>
+            <span><i className="w-count-icon" style={{ background: MOOD_COLOR.wait }}>?</i> thinking</span>
+            <span><i className="w-count-icon" style={{ background: MOOD_COLOR.reject }}>–</i> said no</span>
+            <span><i className="w-legend-arc" /> word of mouth</span>
+            <span><i className="w-legend-group" /> body colour = customer group</span>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+/** Plain-language caption of what is happening right now, at the top of each town. */
+function Caption({ player, compact }: { player: Player; compact: boolean }) {
+  usePlayerVersion(player);
+  const s = player.state;
+  const n = narrate(s, segmentStats(s, hoodsOf(s)));
+  const v = s.status === "ok" ? verdictOf(s) : null;
+  if (v && compact) return null;
+  return (
+    <div className={`w-caption ${compact ? "compact" : ""} ${v ? v.tone : ""}`} aria-live="polite">
+      <strong>{n.title}</strong>
+      <span>{n.body}</span>
+    </div>
+  );
+}
+
+/** End of run: what the simulation concluded, and what really happened to this product. */
+function ResultPanel({ town, compact, onOpenReport }: { town: TownRun; compact: boolean; onOpenReport: () => void }) {
+  usePlayerVersion(town.player);
+  const s = town.player.state;
+  const v = s.status === "ok" ? verdictOf(s) : null;
+  const [open, setOpen] = useState(true);
+  if (!v) return null;
+  const outcome = outcomeFor(s.backtestCaseId, town.source?.displayName ?? town.input.name);
+  const actual = s.backtest?.actual.at(-1);
+  if (!open)
+    return (
+      <button className="w-btn w-result-reopen" onClick={() => setOpen(true)}>
+        Show result
+      </button>
+    );
+  return (
+    <aside className={`w-result ${compact ? "compact" : ""}`}>
+      <button className="w-btn icon ghost w-panel-close" onClick={() => setOpen(false)} aria-label="Hide result">×</button>
+      <div className={`w-result-block ${v.tone}`}>
+        <span className="w-label">Simulation verdict</span>
+        <strong>{v.headline}</strong>
+        <span>{v.detail}</span>
+        {v.report && !compact && <q>{v.report}</q>}
+      </div>
+      {outcome ? (
+        <div className={`w-result-block real ${OUTCOME_TONE[outcome.verdict]}`}>
+          <span className="w-label">What actually happened</span>
+          <strong>{outcome.headline}</strong>
+          <div className="w-result-nums">
+            <div>
+              <b className="mono">{outcome.units >= 1e6 ? `${outcome.units / 1e6}M+` : `≈${Math.round(outcome.units / 1000)}k`}</b>
+              <small>units sold</small>
+            </div>
+            <div>
+              <b className="mono">${compact_(outcome.revenue)}</b>
+              <small>{outcome.revenueNote.includes("estimate") ? "revenue (est.)" : "lifetime revenue"}</small>
+            </div>
+            {actual && (
+              <div>
+                <b className="mono">{Math.round(actual.cumulative * 100)}%</b>
+                <small>of target market by month {actual.month}</small>
+              </div>
+            )}
+          </div>
+          {!compact && (
+            <ul>
+              {outcome.facts.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          )}
+          {!compact && <span className="w-result-src">{outcome.sources}</span>}
+        </div>
+      ) : (
+        <div className="w-result-block muted-block">
+          <span className="w-label">Real world</span>
+          <span>This product has no recorded real launch to compare with. Try Humane Ai Pin, Ray-Ban Meta or Rabbit R1 to see a forecast next to what happened.</span>
+        </div>
+      )}
+      <button className="w-btn" onClick={onOpenReport}>Open full report</button>
+    </aside>
+  );
+}
+
+const compact_ = compactNum;
+
+/** Side-by-side mode: both towns on one shared scale per measure. */
+function HeadToHead({ towns }: { towns: TownRun[] }) {
+  const players = useMemo(() => towns.map((t) => t.player), [towns]);
+  usePlayersVersion(players);
+  const [open, setOpen] = useState(true);
+  const done = towns.every((t) => t.player.state.status === "ok");
+  if (!done) return null;
+  if (!open)
+    return (
+      <button className="w-btn w-h2h-reopen" onClick={() => setOpen(true)}>
+        Compare A vs B
+      </button>
+    );
+  const rows = towns.map((t, i) => {
+    const s = t.player.state;
+    const v = verdictOf(s);
+    return {
+      name: `${i === 0 ? "A" : "B"} · ${(t.source?.displayName ?? t.input.name).replace(/ smart glasses$/i, "")}`,
+      color: i === 0 ? "var(--c-a)" : "var(--c-b)",
+      v,
+      revenue: s.finance?.totalRevenue12 ?? null,
+      outcome: outcomeFor(s.backtestCaseId, t.source?.displayName ?? t.input.name),
+    };
+  });
+  const usd = (n: number) => `${n < 0 ? "−" : ""}$${compactNum(Math.abs(n))}`;
+  const bothReal = rows.every((r) => r.outcome);
+  return (
+    <div className="w-h2h">
+      <div className="w-h2h-head">
+        <span className="w-kicker">Head to head · same scale</span>
+        <button className="w-btn icon ghost" onClick={() => setOpen(false)} aria-label="Hide comparison">×</button>
+      </div>
+      <div className="w-h2h-grid">
+        <BarGroup title="Bought by the last round" fmt={(x) => `${Math.round(x * 100)}%`} rows={rows.map((r) => ({ label: r.name, value: r.v?.observed ?? null, color: r.color }))} />
+        <BarGroup title="Simulated 12-month revenue" fmt={usd} rows={rows.map((r) => ({ label: r.name, value: r.revenue, color: r.color }))} />
+        <BarGroup
+          title="Simulated 12-month profit"
+          fmt={usd}
+          rows={rows.map((r) => ({ label: r.name, value: r.v?.profit12 ?? null, color: r.color, text: r.v?.profit12 == null ? undefined : `${usd(r.v.profit12)}${r.v.breakEven ? ` · pays back m${r.v.breakEven}` : " · never pays back"}` }))}
+        />
+        {bothReal && (
+          <BarGroup title="Real revenue" fmt={usd} rows={rows.map((r) => ({ label: `${r.name} · ${r.outcome!.verdict}`, value: r.outcome!.revenue, color: r.color }))} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function sharedCurveMax(states: RunState[]): number {
+  let m = 0.08;
+  for (const st of states) {
+    const pop = st.personas.size;
+    for (const a of st.adoption) m = Math.max(m, a.cumulative);
+    for (const b of st.bass?.curve ?? []) m = Math.max(m, b.cumulative);
+    for (const a of st.backtest?.actual ?? []) m = Math.max(m, a.cumulative);
+    if (pop) m = Math.max(m, countMoods(st).adopt / pop);
+  }
+  return Math.min(1, Math.ceil((m * 1.12) / 0.05) * 0.05);
 }
 
 function currentStage(s: RunState): string {
@@ -523,9 +703,10 @@ function Count({ color, sign, label, n }: { color: string; sign: string; label: 
   );
 }
 
-function MiniCurve({ state }: { state: RunState }) {
-  const W = 220;
-  const H = 64;
+function MiniCurve({ state, yMax, shared }: { state: RunState; yMax: number; shared: boolean }) {
+  const W = 260;
+  const H = 86;
+  const L = 30;
   const total = state.brief?.rounds ?? 6;
   const mpr = state.brief?.monthsPerRound ?? 1;
   const pts = [{ month: 0, cumulative: 0 }, ...state.adoption.map((a) => ({ month: a.month, cumulative: a.cumulative }))];
@@ -534,26 +715,47 @@ function MiniCurve({ state }: { state: RunState }) {
     pts.push({ month: Math.min(state.currentRound, total) * mpr, cumulative: countMoods(state).adopt / pop });
   }
   const bass = state.bass?.curve ?? [];
-  const xMax = Math.max(total * mpr, bass.length ? bass[bass.length - 1].month : 0, 1);
-  const yMax = Math.max(0.08, ...pts.map((p) => p.cumulative), ...bass.map((b) => b.cumulative)) * 1.15;
-  const x = (m: number) => (m / xMax) * (W - 8) + 4;
-  const y = (v: number) => H - 6 - (v / yMax) * (H - 14);
-  const line = (arr: { month: number; cumulative: number }[]) => arr.map((p, i) => `${i ? "L" : "M"}${x(p.month).toFixed(1)},${y(p.cumulative).toFixed(1)}`).join(" ");
+  const actual = state.backtest?.actual ?? [];
+  const xMax = 12;
+  const x = (m: number) => L + (Math.min(m, xMax) / xMax) * (W - L - 6);
+  const y = (v: number) => H - 14 - (Math.min(v, yMax) / yMax) * (H - 22);
+  const line = (arr: { month: number; cumulative: number }[]) => arr.filter((p) => p.month <= xMax).map((p, i) => `${i ? "L" : "M"}${x(p.month).toFixed(1)},${y(p.cumulative).toFixed(1)}`).join(" ");
   const last = pts[pts.length - 1];
+  const ticks = [0, yMax / 2, yMax];
   return (
     <div className="w-curve">
       <div className="w-curve-head">
-        <span className="w-label">Adoption</span>
-        <span className="mono">{(last.cumulative * 100).toFixed(1)}%</span>
+        <span className="w-label">Share who bought{shared ? " · same scale as other town" : ""}</span>
+        <span className="mono">{(last.cumulative * 100).toFixed(0)}%</span>
       </div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Adoption curve">
-        <line x1={4} x2={W - 4} y1={H - 6} y2={H - 6} className="w-curve-axis" />
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Adoption curve">
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={L} x2={W - 6} y1={y(t)} y2={y(t)} className="w-curve-grid" />
+            <text x={L - 4} y={y(t) + 3} className="w-curve-tick" textAnchor="end">{Math.round(t * 100)}%</text>
+          </g>
+        ))}
+        {[3, 6, 9, 12].map((m) => (
+          <text key={m} x={x(m)} y={H - 2} className="w-curve-tick" textAnchor="middle">{m === 12 ? "12 mo" : m}</text>
+        ))}
         {bass.length > 0 && <path d={line(bass)} className="w-curve-bass" />}
-        <path d={`${line(pts)} L${x(last.month)},${H - 6} L4,${H - 6} Z`} className="w-curve-fill" />
+        <path d={`${line(pts)} L${x(last.month)},${y(0)} L${x(0)},${y(0)} Z`} className="w-curve-fill" />
         <path d={line(pts)} className="w-curve-line" />
         <circle cx={x(last.month)} cy={y(last.cumulative)} r={3} className="w-curve-dot" />
+        {actual.length > 0 && (
+          <>
+            <path d={line([{ month: 0, cumulative: 0 }, ...actual])} className="w-curve-actual" />
+            {actual.map((a) => (
+              <rect key={a.month} x={x(a.month) - 3} y={y(a.cumulative) - 3} width={6} height={6} className="w-curve-actual-pt" />
+            ))}
+          </>
+        )}
       </svg>
-      {bass.length > 0 && <div className="w-curve-legend muted">dashed: fitted 12-month Bass curve</div>}
+      <div className="w-curve-legend">
+        <span><i className="sim" /> simulated</span>
+        {bass.length > 0 && <span><i className="fit" /> 12-month forecast</span>}
+        {actual.length > 0 && <span><i className="real" /> real world</span>}
+      </div>
     </div>
   );
 }

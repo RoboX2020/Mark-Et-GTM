@@ -6,14 +6,17 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import type { EventEnvelope, RunState } from "@market/core";
 import type { Player } from "../lib/player";
 import { countMoods, moodOf, useEventFeed, usePlayerKey, usePlayerVersion, verdictOf, type Mood } from "./useWorld";
+import { OUTCOME_TONE, outcomeFor, type Outcome } from "../lib/outcomes";
 
 export type Selection = { kind: "agent"; id: string } | { kind: "hood"; id: string } | null;
 
-export const PALETTE = ["#e08a6b", "#7fae96", "#e9bd6c", "#86a2cf", "#c493b9", "#d9a27e", "#93bcb0", "#cf9a9a"];
-export const MOOD_COLOR: Record<Exclude<Mood, "none">, string> = { adopt: "#4fa86a", wait: "#e8ad2e", reject: "#d9574a" };
+/** Customer-group colours. None of them is green, amber or red, which are reserved for buy / wait / no. */
+export const PALETTE = ["#3557e8", "#0e9fb0", "#c8407f", "#7b55d6", "#4f647f", "#b8662e", "#3d9be0", "#9a3f8f"];
+export const MOOD_COLOR: Record<Exclude<Mood, "none">, string> = { adopt: "#14a06c", wait: "#f0ac17", reject: "#e2402f" };
+export const MOOD_LABEL: Record<Exclude<Mood, "none">, string> = { adopt: "bought", wait: "thinking", reject: "said no" };
 const SKIN = ["#f2c9a6", "#e2ad86", "#c98c64", "#8f5c3c", "#f6d8c1", "#b87a55"];
-const BG = "#f2e8d8";
-const CLAY = "#b4613e";
+const BG = "#e4e7e0";
+const TOWER = "#1b2a44";
 const TOWER_H = 7.2;
 const SP = 0.95;
 const MAX_PULSES = 96;
@@ -148,15 +151,15 @@ function Ground({ layout, onHood }: { layout: Layout | null; onHood: (id: string
     <group>
       <mesh position={[0, -0.35, 0]} receiveShadow>
         <cylinderGeometry args={[island, island * 0.97, 0.7, 64]} />
-        <meshStandardMaterial color="#a9c48a" roughness={0.95} />
+        <meshStandardMaterial color="#d3d8cb" roughness={0.95} />
       </mesh>
       <mesh position={[0, -1.3, 0]}>
         <cylinderGeometry args={[island * 0.97, island * 0.86, 1.3, 64]} />
-        <meshStandardMaterial color="#c79f74" roughness={1} />
+        <meshStandardMaterial color="#8d96a3" roughness={1} />
       </mesh>
       <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[island * 3.2, 64]} />
-        <meshStandardMaterial color="#cfe0d4" roughness={1} />
+        <meshStandardMaterial color="#cdd5d8" roughness={1} />
       </mesh>
       {layout?.hoods.map((h) => {
         const len = Math.max(0.5, layout.ring - h.half - 2);
@@ -165,7 +168,7 @@ function Ground({ layout, onHood }: { layout: Layout | null; onHood: (id: string
           <group key={h.id}>
             <mesh position={[Math.cos(h.angle) * mid, 0.02, Math.sin(h.angle) * mid]} rotation={[0, -h.angle, 0]} receiveShadow>
               <boxGeometry args={[len, 0.06, 1.1]} />
-              <meshStandardMaterial color="#ead6b0" roughness={1} />
+              <meshStandardMaterial color="#f4f5f0" roughness={1} />
             </mesh>
             <mesh
               position={[h.cx, 0.04, h.cz]}
@@ -177,7 +180,7 @@ function Ground({ layout, onHood }: { layout: Layout | null; onHood: (id: string
               }}
             >
               <boxGeometry args={[h.half * 2, 0.1, h.half * 2]} />
-              <meshStandardMaterial color={new THREE.Color(h.color).lerp(new THREE.Color("#f6ecd9"), 0.62)} roughness={1} />
+              <meshStandardMaterial color={new THREE.Color(h.color).lerp(new THREE.Color("#eef0ea"), 0.7)} roughness={1} />
             </mesh>
           </group>
         );
@@ -201,7 +204,7 @@ function Houses({ layout }: { layout: Layout }) {
       walls.current?.setMatrixAt(i, m);
       roofs.current?.setMatrixAt(i, m);
       roofs.current?.setColorAt(i, c.set(h.color));
-      walls.current?.setColorAt(i, c.set(i % 3 === 0 ? "#fbf1e1" : i % 3 === 1 ? "#f4e3c9" : "#efe6da"));
+      walls.current?.setColorAt(i, c.set(i % 3 === 0 ? "#f6f7f3" : i % 3 === 1 ? "#e7eae4" : "#dde1db"));
     });
     for (const r of [walls.current, roofs.current]) {
       if (!r) continue;
@@ -233,7 +236,7 @@ function Trees({ layout }: { layout: Layout }) {
       m.makeScale(t.s, t.s, t.s).setPosition(t.x, 0, t.z);
       trunks.current?.setMatrixAt(i, m);
       tops.current?.setMatrixAt(i, m);
-      tops.current?.setColorAt(i, c.set(i % 4 === 0 ? "#e2b86a" : i % 4 === 1 ? "#88ad6e" : i % 4 === 2 ? "#6f9a63" : "#9cbd78"));
+      tops.current?.setColorAt(i, c.set(i % 4 === 0 ? "#8fb08c" : i % 4 === 1 ? "#6a9476" : i % 4 === 2 ? "#4f7a63" : "#a5bd98"));
     });
     for (const r of [trunks.current, tops.current]) {
       if (!r) continue;
@@ -246,7 +249,7 @@ function Trees({ layout }: { layout: Layout }) {
   return (
     <>
       <instancedMesh ref={trunks} args={[trunkGeo, undefined, layout.trees.length]} castShadow>
-        <meshStandardMaterial color="#8a6448" roughness={1} />
+        <meshStandardMaterial color="#5d5a55" roughness={1} />
       </instancedMesh>
       <instancedMesh ref={tops} args={[topGeo, undefined, layout.trees.length]} castShadow>
         <meshStandardMaterial roughness={0.9} />
@@ -255,7 +258,7 @@ function Trees({ layout }: { layout: Layout }) {
   );
 }
 
-function Tower({ name, player, onOpenReport }: { name: string; player: Player; onOpenReport: () => void }) {
+function Tower({ name, player, onOpenReport, outcome, compact }: { name: string; player: Player; onOpenReport: () => void; outcome?: Outcome; compact: boolean }) {
   const done = usePlayerKey(player, (s) => (s.status === "ok" && s.bass ? (s.finance ? 2 : 1) : 0));
   usePlayerVersion(player);
   const verdict = done ? verdictOf(player.state) : null;
@@ -276,7 +279,7 @@ function Tower({ name, player, onOpenReport }: { name: string; player: Player; o
   useFrame(({ clock }) => {
     if (!crown.current) return;
     const tone = verdict?.tone;
-    const target = tone === "pos" ? "#7cc48a" : tone === "warn" ? "#f0c25a" : tone === "neg" ? "#e9806f" : "#ffcf8a";
+    const target = tone === "pos" ? MOOD_COLOR.adopt : tone === "warn" ? MOOD_COLOR.wait : tone === "neg" ? MOOD_COLOR.reject : "#8fa0ff";
     crown.current.emissive.lerp(new THREE.Color(target), 0.05);
     crown.current.emissiveIntensity = 0.55 + Math.sin(clock.elapsedTime * 2) * 0.15;
   });
@@ -284,31 +287,37 @@ function Tower({ name, player, onOpenReport }: { name: string; player: Player; o
     <group>
       <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
         <boxGeometry args={[3.6, 0.8, 3.6]} />
-        <meshStandardMaterial color="#d9c2a0" roughness={0.9} />
+        <meshStandardMaterial color="#b9c0c9" roughness={0.9} />
       </mesh>
       <mesh position={[0, 0.8 + TOWER_H / 2 - 0.4, 0]} castShadow receiveShadow>
         <boxGeometry args={[2.4, TOWER_H - 0.8, 2.4]} />
-        <meshStandardMaterial color={CLAY} roughness={0.75} />
+        <meshStandardMaterial color={TOWER} roughness={0.7} />
       </mesh>
       <mesh geometry={windows}>
-        <meshStandardMaterial color="#fff1d0" emissive="#ffcf8a" emissiveIntensity={0.6} roughness={0.5} />
+        <meshStandardMaterial color="#dfe5ff" emissive="#8fa0ff" emissiveIntensity={0.7} roughness={0.5} />
       </mesh>
       <mesh position={[0, TOWER_H + 0.3, 0]} castShadow>
         <boxGeometry args={[2.9, 0.6, 2.9]} />
-        <meshStandardMaterial ref={crown} color="#f3dcc0" emissive="#ffcf8a" emissiveIntensity={0.5} roughness={0.6} />
+        <meshStandardMaterial ref={crown} color="#eef1f6" emissive="#8fa0ff" emissiveIntensity={0.5} roughness={0.6} />
       </mesh>
       <mesh position={[0, 0.5, 1.81]}>
         <boxGeometry args={[0.8, 1.0, 0.05]} />
-        <meshStandardMaterial color="#6b3b26" roughness={1} />
+        <meshStandardMaterial color="#0e1726" roughness={1} />
       </mesh>
       <Html position={[0, TOWER_H - 0.55, 0]} center zIndexRange={[60, 50]} className="w-html">
         <div className="w-tower-name">{name}</div>
       </Html>
-      {verdict && (
+      {verdict && !compact && (
         <Html position={[0, TOWER_H * 0.5, 0]} center zIndexRange={[70, 60]} className="w-html">
           <div className={`w-verdict ${verdict.tone}`}>
+            <span className="w-verdict-k">Simulation verdict</span>
             <strong>{verdict.headline}</strong>
             <span>{verdict.detail}</span>
+            {outcome && (
+              <span className={`w-verdict-real ${OUTCOME_TONE[outcome.verdict]}`}>
+                <b>Real world: {outcome.verdict}</b> {outcome.headline.replace(/^[A-Z][a-z ,]+: /, "")}
+              </span>
+            )}
             <button className="w-btn small" onClick={onOpenReport}>Open full report</button>
           </div>
         </Html>
@@ -317,21 +326,34 @@ function Tower({ name, player, onOpenReport }: { name: string; player: Player; o
   );
 }
 
-function HoodLabels({ layout, player, onHood, selected }: { layout: Layout; player: Player; onHood: (id: string) => void; selected: string | null }) {
+function HoodLabels({ layout, player, onHood, selected, compact }: { layout: Layout; player: Player; onHood: (id: string) => void; selected: string | null; compact: boolean }) {
   usePlayerVersion(player);
   return (
     <>
       {layout.hoods.map((h) => {
         const c = countMoods(player.state, h.id);
-        const decided = c.adopt + c.wait + c.reject;
         const pct = c.total ? Math.round((c.adopt / c.total) * 100) : 0;
+        const w = (n: number) => `${c.total ? (n / c.total) * 100 : 0}%`;
         const r = layout.ring + h.half + 0.6;
         return (
           <Html key={h.id} position={[Math.cos(h.angle) * r, 0.3, Math.sin(h.angle) * r]} center zIndexRange={[25, 5]} className="w-html">
-            <button className={`w-hood-label ${selected === h.id ? "on" : ""}`} style={{ borderColor: h.color }} onClick={() => onHood(h.id)}>
-              <span className="w-hood-dot" style={{ background: h.color }} />
-              <span className="w-hood-name">{h.label}</span>
-              <span className="w-hood-pct">{decided ? `${pct}%` : "–"}</span>
+            <button className={`w-sign ${selected === h.id ? "on" : ""} ${compact ? "compact" : ""}`} style={{ borderTopColor: h.color }} onClick={() => onHood(h.id)}>
+              <span className="w-sign-head">
+                <span className="w-sign-swatch" style={{ background: h.color }} />
+                <span className="w-sign-name">{h.label}</span>
+                <span className="w-sign-pct">{pct}%</span>
+              </span>
+              <span className="w-sign-bar">
+                <i style={{ width: w(c.adopt), background: MOOD_COLOR.adopt }} />
+                <i style={{ width: w(c.wait), background: MOOD_COLOR.wait }} />
+                <i style={{ width: w(c.reject), background: MOOD_COLOR.reject }} />
+              </span>
+              {!compact && (
+                <span className="w-sign-counts">
+                  <b style={{ color: MOOD_COLOR.adopt }}>{c.adopt}</b> bought · <b style={{ color: "#a86f00" }}>{c.wait}</b> thinking · <b style={{ color: MOOD_COLOR.reject }}>{c.reject}</b> no
+                  <span className="muted"> / {c.total}</span>
+                </span>
+              )}
             </button>
           </Html>
         );
@@ -461,7 +483,7 @@ function Residents({
         }
       } else if (e.type === "agent.message") {
         const m = e.message;
-        const tone = m.sentiment > 0.2 ? MOOD_COLOR.adopt : m.sentiment < -0.2 ? MOOD_COLOR.reject : "#ffd9a0";
+        const tone = m.sentiment > 0.2 ? MOOD_COLOR.adopt : m.sentiment < -0.2 ? MOOD_COLOR.reject : "#8fa0ff";
         addPulse(layout.index.get(m.from), layout.index.get(m.to), tone, t);
         const from = layout.index.get(m.from);
         if (m.text && from !== undefined && Math.random() < 0.35) {
@@ -516,7 +538,7 @@ function Residents({
         sim.mood[i] = mi;
         sim.changed[i] = t;
         c.set(layout.hoods[layout.hoodOf[i]].color);
-        if (mood !== "none") c.lerp(MOOD_THREE[mood], 0.35);
+        if (mood === "reject") c.lerp(MOOD_THREE.reject, 0.15).multiplyScalar(0.8);
         bodies.current?.setColorAt(i, c);
         colorDirty = true;
       }
@@ -722,34 +744,34 @@ function Residents({
       </instancedMesh>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
         <ringGeometry args={[0.32, 0.46, 24]} />
-        <meshBasicMaterial color="#fff6e6" transparent opacity={0.95} />
+        <meshBasicMaterial color="#2440d6" transparent opacity={0.95} />
       </mesh>
       <group ref={package_}>
         <mesh castShadow>
           <boxGeometry args={[0.9, 0.9, 0.9]} />
-          <meshStandardMaterial color="#ffd27a" emissive="#ffb347" emissiveIntensity={0.9} />
+          <meshStandardMaterial color="#f6f7fb" emissive="#c9d2ff" emissiveIntensity={0.6} />
         </mesh>
         <mesh>
           <boxGeometry args={[0.95, 0.95, 0.2]} />
-          <meshStandardMaterial color="#e0573f" emissive="#e0573f" emissiveIntensity={0.4} />
+          <meshStandardMaterial color="#2440d6" emissive="#2440d6" emissiveIntensity={0.5} />
         </mesh>
         <mesh>
           <boxGeometry args={[0.2, 0.95, 0.95]} />
-          <meshStandardMaterial color="#e0573f" emissive="#e0573f" emissiveIntensity={0.4} />
+          <meshStandardMaterial color="#2440d6" emissive="#2440d6" emissiveIntensity={0.5} />
         </mesh>
-        <pointLight color="#ffc47a" intensity={6} distance={7} />
+        <pointLight color="#9fb0ff" intensity={6} distance={7} />
       </group>
       <mesh ref={wave} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.25, 0]} visible={false}>
         <ringGeometry args={[0.8, 1, 96]} />
-        <meshBasicMaterial color="#ffd08a" transparent depthWrite={false} toneMapped={false} />
+        <meshBasicMaterial color="#5f78ff" transparent depthWrite={false} toneMapped={false} />
       </mesh>
       <mesh ref={beam} position={[0, TOWER_H + 8, 0]} visible={false}>
         <cylinderGeometry args={[0.7, 1.3, 16, 24, 1, true]} />
-        <meshBasicMaterial color="#ffe0a8" transparent depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+        <meshBasicMaterial color="#b9c5ff" transparent depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
       <instancedMesh ref={sparks} args={[undefined, undefined, 48]} frustumCulled={false}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial color="#ffd27a" toneMapped={false} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </instancedMesh>
       {bubbles.map((b) => (
         <Html key={b.key} position={[layout.home[b.agent * 2], 1.75, layout.home[b.agent * 2 + 1]]} center distanceFactor={22} zIndexRange={[40, 20]} className="w-html no-pointer">
@@ -797,7 +819,7 @@ function NeighbourLines({ layout, player, id, agentPos }: { layout: Layout; play
   if (!pairs.length) return null;
   return (
     <lineSegments geometry={geo} frustumCulled={false}>
-      <lineBasicMaterial color="#7a4a2e" transparent opacity={0.55} />
+      <lineBasicMaterial color="#0e1726" transparent opacity={0.55} />
     </lineSegments>
   );
 }
@@ -870,25 +892,27 @@ function CameraRig({ layout, selection, agentPos, autoOrbit }: { layout: Layout 
   );
 }
 
-function Scene({ player, name, selection, onSelect, onOpenReport, autoOrbit }: TownProps) {
+function Scene({ player, name, selection, onSelect, onOpenReport, autoOrbit, compact = false }: TownProps) {
   const key = usePlayerKey(player, (s) => {
     const ready = s.stages.population.status === "done" || s.currentRound > 0 || s.status === "ok";
     return ready && s.personas.size ? `${s.runId}|${s.personas.size}` : `${s.runId}|0`;
   });
   const layout = useMemo(() => (key.endsWith("|0") ? null : buildLayout(player.state, key)), [key, player]);
   const agentPos = useRef<Float32Array>(new Float32Array(0));
+  const caseId = usePlayerKey(player, (s) => s.backtestCaseId ?? null);
+  const outcome = useMemo(() => outcomeFor(caseId, name), [caseId, name]);
   const island = layout?.island ?? 16;
   const R = island;
   return (
     <>
       <color attach="background" args={[BG]} />
       <fog attach="fog" args={[BG, R * 2.4, R * 5.5]} />
-      <hemisphereLight args={["#fff3dd", "#b5946f", 1.0]} />
-      <ambientLight intensity={0.25} color="#ffe9cf" />
+      <hemisphereLight args={["#f4f6ff", "#8a8f7c", 1.0]} />
+      <ambientLight intensity={0.25} color="#eef1ff" />
       <directionalLight
         position={[R * 0.7, R * 1.3, R * 0.45]}
         intensity={1.9}
-        color="#ffe1bd"
+        color="#fff8ee"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
@@ -900,13 +924,13 @@ function Scene({ player, name, selection, onSelect, onOpenReport, autoOrbit }: T
         shadow-camera-far={R * 4}
       />
       <Ground layout={layout} onHood={(id) => onSelect({ kind: "hood", id })} />
-      <Tower name={name} player={player} onOpenReport={onOpenReport} />
+      <Tower name={name} player={player} onOpenReport={onOpenReport} outcome={outcome} compact={compact} />
       {layout && (
         <>
           <Houses layout={layout} />
           <Trees layout={layout} />
           <Residents key={layout.key} layout={layout} player={player} selection={selection} onAgent={(id) => onSelect({ kind: "agent", id })} agentPos={agentPos} />
-          <HoodLabels layout={layout} player={player} onHood={(id) => onSelect({ kind: "hood", id })} selected={selection?.kind === "hood" ? selection.id : null} />
+          <HoodLabels layout={layout} player={player} onHood={(id) => onSelect({ kind: "hood", id })} selected={selection?.kind === "hood" ? selection.id : null} compact={compact} />
           {selection?.kind === "agent" && <NeighbourLines layout={layout} player={player} id={selection.id} agentPos={agentPos} />}
         </>
       )}
@@ -922,6 +946,7 @@ export interface TownProps {
   onSelect: (s: Selection) => void;
   onOpenReport: () => void;
   autoOrbit: boolean;
+  compact?: boolean;
 }
 
 export function Town(props: TownProps) {
@@ -931,7 +956,11 @@ export function Town(props: TownProps) {
       dpr={[1, 1.75]}
       camera={{ fov: 38, position: [26, 22, 26], near: 0.5, far: 400 }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
-      onPointerMissed={() => props.onSelect(null)}
+      onPointerMissed={(e) => {
+        // Html overlays live inside the canvas wrapper, so their clicks also reach R3F as misses.
+        if ((e.target as HTMLElement | null)?.closest?.(".w-html")) return;
+        props.onSelect(null);
+      }}
     >
       <Scene {...props} />
     </Canvas>
