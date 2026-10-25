@@ -110,6 +110,7 @@ function TopBar() {
   const [current, setCurrent] = useState<string>("");
   const [liveRuns, setLiveRuns] = useState<LiveRun[]>([]);
   const [liveErr, setLiveErr] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const live = useRef<LiveHandle | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [theme, setTheme] = useState<string>(() => {
@@ -181,10 +182,22 @@ function TopBar() {
       </div>
       <div className="seg">
         <button className={source === "replay" ? "on" : ""} onClick={() => setSource("replay")}>replay</button>
-        <button className={source === "live" ? "on" : ""} onClick={() => setSource("live")} title={liveAvailable() ? "Subscribe to SpacetimeDB" : "Generate SpacetimeDB bindings first"}>
+        <button
+          className={source === "live" ? "on" : ""}
+          onClick={() => {
+            if (!liveAvailable()) {
+              setNote("Live mode needs a SpacetimeDB server. Recorded runs keep playing here.");
+              return;
+            }
+            setNote(null);
+            setSource("live");
+          }}
+          title={liveAvailable() ? "Subscribe to SpacetimeDB" : "SpacetimeDB bindings are not in this build"}
+        >
           live
         </button>
       </div>
+      {source === "replay" && note && <span className="top-note">{note}</span>}
       {source === "replay" ? (
         <>
           <select className="select" value={current} onChange={(e) => choose(runs, e.target.value)}>
