@@ -3,6 +3,9 @@ import { useDateFilter, useNav, useRun } from "../lib/context";
 import { int, money, pct, STATE_LABEL } from "../lib/format";
 import { LineChart } from "../components/Charts";
 import type { AdoptionState } from "@market/core";
+import { OutcomeCard, Versus } from "../components/Outcome";
+import { outcomeFor } from "../lib/outcomes";
+import { verdictOf } from "../lib/verdict";
 
 export function Overview() {
   const { state } = useRun();
@@ -21,6 +24,8 @@ export function Overview() {
   const bass = state.bass;
   const segments = [...state.nodes.values()].filter((x) => x.kind === "segment");
   const synthetic = state.evidence.filter((e) => e.synthetic).length;
+  const verdict = state.status === "ok" ? verdictOf(state) : null;
+  const outcome = state.backtestCaseId ? outcomeFor(state.backtestCaseId, state.backtest?.realName) : undefined;
 
   return (
     <div className="stack">
@@ -52,13 +57,31 @@ export function Overview() {
         </div>
       )}
 
+      {verdict && (
+        <div className={`card verdict-strip ${verdict.tone}`}>
+          <div>
+            <span className="eyebrow">Simulation verdict</span>
+            <h2>{verdict.headline}</h2>
+            <div className="muted" style={{ fontSize: 13 }}>{verdict.detail}</div>
+          </div>
+          {verdict.report && <blockquote>“{verdict.report}”<span className="muted"> engine report</span></blockquote>}
+        </div>
+      )}
+
+      {outcome && verdict && (
+        <div className="grid g2">
+          <OutcomeCard outcome={outcome} />
+          <Versus verdict={verdict} outcome={outcome} />
+        </div>
+      )}
+
       <div className="grid g6">
         <Metric k="Agents" v={int(n)} s={`${segments.length} segments`} />
         <Metric k="Adopted" v={n ? pct(counts.adopted / n, 1) : "—"} s={`${counts.considering} considering`} live={state.status === "running" && state.currentRound > 0} />
-        <Metric k="Eventual adoption m" v={bass ? pct(bass.m, 1) : "—"} s={bass ? `p ${bass.p.toFixed(3)} · q ${bass.q.toFixed(2)}` : "after simulation"} />
+        <Metric k="Forecast ceiling m" v={bass ? pct(bass.m, 1) : "—"} s={bass ? `Bass upper bound · q ${bass.q.toFixed(2)}` : "after simulation"} />
         <Metric k="Peak month" v={bass ? bass.peakMonth.toFixed(1) : "—"} s="new sign-ups" />
-        <Metric k="12-mo revenue" v={fin ? money(fin.totalRevenue12, b, true) : "—"} s={fin ? `ARPU ${money(fin.arpu, b)}` : "finance agent"} />
-        <Metric k="Break-even" v={fin ? (fin.breakEvenMonth ? `M${fin.breakEvenMonth}` : ">12") : "—"} s={fin ? `low cash ${money(fin.minCash, b, true)}` : ""} />
+        <Metric k="12-mo revenue" v={fin ? money(fin.totalRevenue12, b, true) : "—"} s={fin ? `profit ${money(verdict?.profit12 ?? fin.months.reduce((a, m) => a + m.net, 0), b, true)}` : "finance agent"} tone={fin ? (fin.months.reduce((a, m) => a + m.net, 0) < 0 ? "neg" : "pos") : undefined} />
+        <Metric k="Break-even" v={fin ? (fin.breakEvenMonth ? `M${fin.breakEvenMonth}` : "Never") : "—"} s={fin ? (fin.breakEvenMonth ? `low cash ${money(fin.minCash, b, true)}` : "not within 12 months") : ""} tone={fin ? (fin.breakEvenMonth ? "pos" : "neg") : undefined} />
       </div>
 
       <div className="grid g2">
@@ -120,9 +143,9 @@ export function Overview() {
   );
 }
 
-function Metric({ k, v, s, live }: { k: string; v: string; s?: string; live?: boolean }) {
+function Metric({ k, v, s, live, tone }: { k: string; v: string; s?: string; live?: boolean; tone?: "pos" | "neg" | "warn" }) {
   return (
-    <div className="card metric">
+    <div className={`card metric ${tone ?? ""}`}>
       <div className="row between">
         <span className="eyebrow">{k}</span>
         {live && <span className="dot live" />}
