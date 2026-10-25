@@ -73,6 +73,37 @@ spacetime generate --lang typescript --out-dir ../apps/portal/src/stdb/module_bi
 VITE_STREAM_SOURCE=spacetime pnpm dev
 ```
 
+## Market World
+
+The **Market World** button in the top bar (or `?world=1` in the URL) opens a
+full-screen 3D voxel town that replays a run: one neighbourhood per segment,
+one resident per agent, and a central tower for the product. Enter a product
+name, price and description, then launch. You can watch icons, comments and
+word-of-mouth arcs spread round by round, click a resident or a neighbourhood
+for details, change the playback speed, compare two products side by side, and
+jump to the full report when the run ends.
+
+Each town plays the best run available:
+
+1. a real engine run, when a local engine is connected (below);
+2. a recorded run whose product name matches (Humane, Ray-Ban Meta, Rabbit, Tandem);
+3. a scripted demo run built in the browser (seeded diffusion, no models, labelled as a demo).
+
+If an engine run fails partway, the town switches to the next option, so the demo always plays.
+The HUD badge always shows which source is playing.
+
+To run any product for real, start the local bridge and paste its URL into the
+launch panel's engine field:
+
+```bash
+pnpm --filter @market/engine serve   # http://127.0.0.1:8787, uses MARKET_MODE from .env
+ENGINE_SERVE_MODE=mock pnpm --filter @market/engine serve   # same, without model calls
+```
+
+The bridge only listens on 127.0.0.1 and spends your own API credits. Don't
+expose it publicly. The hosted static site has no engine, so it plays recorded
+and scripted runs unless you connect a local bridge.
+
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md)
