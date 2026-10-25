@@ -81,7 +81,7 @@ export function LineChart({
       {series.map((s, i) => (
         <g key={`${i}-${s.points.length}`}>
           {s.area && s.points.length > 1 && <path className="area" d={`${path(s.points)}L${x(s.points[s.points.length - 1].x)},${y(0)}L${x(s.points[0].x)},${y(0)}Z`} />}
-          {s.points.length > 1 && <path className={`curve ${s.kind === "curve" ? "" : s.kind} draw`} d={path(s.points)} />}
+          {s.points.length > 1 && <path pathLength={1} className={`curve ${s.kind === "curve" ? "" : s.kind} draw`} d={path(s.points)} />}
           {s.dots && s.points.map((p, j) => <circle key={j} className={`pt ${s.kind === "actual" ? "actual" : ""}`} cx={x(p.x)} cy={y(p.y)} r={3.6} />)}
         </g>
       ))}
@@ -118,7 +118,7 @@ export function FinanceChart({ months, fmt }: { months: FinanceMonth[]; fmt: (v:
           </text>
         </g>
       ))}
-      <path className="curve alt draw" d={months.map((m, i) => `${i ? "L" : "M"}${x(m.month)},${yc(m.cash)}`).join("")} />
+      <path pathLength={1} className="curve alt draw" d={months.map((m, i) => `${i ? "L" : "M"}${x(m.month)},${yc(m.cash)}`).join("")} />
       <line className="axis" x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)} />
     </svg>
   );
