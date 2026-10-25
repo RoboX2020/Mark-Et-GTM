@@ -19,7 +19,7 @@ export interface EngineConfig {
   swarmMix: Record<string, number>;
   swarmBatch: number;
   concurrency: number;
-  brightdata: { token: string; serpZone: string; datasets: { reddit: string; x: string; tiktok: string } };
+  brightdata: { token: string; serpZone: string; datasets: { reddit: string; x: string; tiktok: string }; xProfileUrls: string[] };
   apify: { token: string; actors: Record<string, string> };
   kalshi: { base: string };
   polymarket: { gamma: string; clob: string };
@@ -56,6 +56,10 @@ export function loadConfig(overrides: Partial<{ mode: Mode; spacetime: boolean }
       token: env("BRIGHTDATA_API_TOKEN"),
       serpZone: env("BRIGHTDATA_SERP_ZONE", "serp_api1"),
       datasets: { reddit: env("BRIGHTDATA_DATASET_REDDIT"), x: env("BRIGHTDATA_DATASET_X"), tiktok: env("BRIGHTDATA_DATASET_TIKTOK") },
+      xProfileUrls: env("BRIGHTDATA_X_PROFILE_URLS")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
     },
     apify: {
       token: env("APIFY_TOKEN"),
