@@ -176,6 +176,16 @@ fn f(v: &Value, path: &str) -> f64 {
     v.pointer(path).and_then(|x| x.as_f64()).unwrap_or_default()
 }
 
+fn put_evidence(ctx: &ReducerContext, run_id: &str, id: &str, source: String, json: String) {
+    let key = k(run_id, id);
+    let row = Evidence { key: key.clone(), run_id: run_id.to_string(), source, json };
+    if ctx.db.evidence().key().find(&key).is_some() {
+        ctx.db.evidence().key().update(row);
+    } else {
+        ctx.db.evidence().insert(row);
+    }
+}
+
 fn put_metric(ctx: &ReducerContext, run_id: &str, name: &str, json: String) {
     let key = k(run_id, name);
     let row = Metric { key: key.clone(), run_id: run_id.to_string(), name: name.to_string(), json };
@@ -232,12 +242,12 @@ pub fn append_event(ctx: &ReducerContext, run_id: String, seq: u64, ts: i64, kin
         }
         "evidence.added" => {
             let item = &e["item"];
-            ctx.db.evidence().insert(Evidence { key: k(&run_id, &s(item, "/id")), run_id: run_id.clone(), source: s(item, "/source"), json: item.to_string() });
+            put_evidence(ctx, &run_id, &s(item, "/id"), s(item, "/source"), item.to_string());
         }
         "signal.added" | "anchor.added" => {
             let (field, prefix) = if kind == "signal.added" { ("signal", "signal") } else { ("anchor", "anchor") };
             let item = &e[field];
-            ctx.db.evidence().insert(Evidence { key: k(&run_id, &s(item, "/id")), run_id: run_id.clone(), source: prefix.into(), json: item.to_string() });
+            put_evidence(ctx, &run_id, &s(item, "/id"), prefix.into(), item.to_string());
         }
         "graph.node" => {
             let n = &e["node"];
@@ -251,19 +261,26 @@ pub fn append_event(ctx: &ReducerContext, run_id: String, seq: u64, ts: i64, kin
         }
         "graph.edge" => {
             let ed = &e["edge"];
-            ctx.db.graph_edge().insert(GraphEdge {
-                key: k(&run_id, &s(ed, "/id")),
+            let key = k(&run_id, &s(ed, "/id"));
+            let row = GraphEdge {
+                key: key.clone(),
                 run_id: run_id.clone(),
                 source: s(ed, "/source"),
                 target: s(ed, "/target"),
                 relation: s(ed, "/relation"),
                 weight: f(ed, "/weight"),
-            });
+            };
+            if ctx.db.graph_edge().key().find(&key).is_some() {
+                ctx.db.graph_edge().key().update(row);
+            } else {
+                ctx.db.graph_edge().insert(row);
+            }
         }
         "agent.created" => {
             let p = &e["persona"];
-            ctx.db.agent().insert(Agent {
-                key: k(&run_id, &s(p, "/id")),
+            let key = k(&run_id, &s(p, "/id"));
+            let row = Agent {
+                key: key.clone(),
                 run_id: run_id.clone(),
                 agent_id: s(p, "/id"),
                 name: s(p, "/name"),
@@ -273,7 +290,12 @@ pub fn append_event(ctx: &ReducerContext, run_id: String, seq: u64, ts: i64, kin
                 sentiment: 0.0,
                 thinking: false,
                 persona: p.to_string(),
-            });
+            };
+            if ctx.db.agent().key().find(&key).is_some() {
+                ctx.db.agent().key().update(row);
+            } else {
+                ctx.db.agent().insert(row);
+            }
         }
         "agent.thinking" => {
             if let Some(mut a) = ctx.db.agent().key().find(&k(&run_id, &s(&e, "/agentId"))) {
@@ -321,7 +343,13 @@ pub fn append_event(ctx: &ReducerContext, run_id: String, seq: u64, ts: i64, kin
         "market_backtest.row" => put_metric(ctx, &run_id, &format!("market_{}", s(&e, "/row/signalId")), e["row"].to_string()),
         "interview.started" => {
             let agent_id = s(&e, "/agentId");
-            ctx.db.interview().insert(Interview { key: k(&run_id, &agent_id), run_id: run_id.clone(), agent_id, qa: "[]".into(), done: false, json: String::new() });
+            let key = k(&run_id, &agent_id);
+            let row = Interview { key: key.clone(), run_id: run_id.clone(), agent_id, qa: "[]".into(), done: false, json: String::new() };
+            if ctx.db.interview().key().find(&key).is_some() {
+                ctx.db.interview().key().update(row);
+            } else {
+                ctx.db.interview().insert(row);
+            }
         }
         "interview.answer" => {
             if let Some(mut iv) = ctx.db.interview().key().find(&k(&run_id, &s(&e, "/agentId"))) {
@@ -341,15 +369,21 @@ pub fn append_event(ctx: &ReducerContext, run_id: String, seq: u64, ts: i64, kin
             }
         }
         "report.section" => {
-            ctx.db.report_section().insert(ReportSection {
-                key: k(&run_id, &s(&e, "/id")),
+            let key = k(&run_id, &s(&e, "/id"));
+            let row = ReportSection {
+                key: key.clone(),
                 run_id: run_id.clone(),
                 section_id: s(&e, "/id"),
                 title: s(&e, "/title"),
                 order: f(&e, "/order") as u32,
                 text: String::new(),
                 done: false,
-            });
+            };
+            if ctx.db.report_section().key().find(&key).is_some() {
+                ctx.db.report_section().key().update(row);
+            } else {
+                ctx.db.report_section().insert(row);
+            }
         }
         "report.delta" => {
             if let Some(mut sec) = ctx.db.report_section().key().find(&k(&run_id, &s(&e, "/id"))) {
