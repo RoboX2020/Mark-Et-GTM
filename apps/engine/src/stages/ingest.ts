@@ -26,6 +26,12 @@ function queries(ctx: RunContext): string[] {
 
 type Fetcher = { source: EvidenceSource; via: string; run: (q: string) => Promise<Record<string, unknown>[]> };
 
+function apifyFetcher(ctx: RunContext, source: EvidenceSource): Fetcher | null {
+  const actor = ctx.cfg.apify.actors[source];
+  if (!ctx.cfg.apify.token || !actor) return null;
+  return { source, via: `apify.${source}`, run: (q) => apifyActor(ctx.cfg.apify.token, actor, apifyInput(source, q)) };
+}
+
 function fetchers(ctx: RunContext): Fetcher[] {
   const { brightdata: bd, apify } = ctx.cfg;
   const out: Fetcher[] = [];
@@ -50,6 +56,26 @@ function fetchers(ctx: RunContext): Fetcher[] {
   return out;
 }
 
+/** Bright Data first. Apify runs only when that source came back empty or failed. */
+async function pull(ctx: RunContext, f: Fetcher, q: string): Promise<Record<string, unknown>[] | null> {
+  const { bus, cache, cutoff } = ctx;
+  try {
+    const raw = await cache.through(`evidence/${f.via}`, { q, cutoff }, () => f.run(q));
+    if (raw && raw.length) return raw;
+  } catch (err) {
+    bus.log(`${f.via} "${q}" failed: ${(err as Error).message.slice(0, 160)}`, "warn");
+  }
+  const backup = f.via.startsWith("brightdata.") && f.source !== "news" ? apifyFetcher(ctx, f.source) : null;
+  if (!backup) return null;
+  try {
+    bus.log(`${f.via} "${q}" empty — trying ${backup.via}`, "warn");
+    return await cache.through(`evidence/${backup.via}`, { q, cutoff }, () => backup.run(q));
+  } catch (err) {
+    bus.log(`${backup.via} "${q}" failed: ${(err as Error).message.slice(0, 160)}`, "warn");
+    return null;
+  }
+}
+
 export async function ingest(ctx: RunContext): Promise<void> {
   const { bus, cache, cutoff } = ctx;
   bus.emit({ type: "stage", stage: "ingest", status: "running", detail: `cutoff ${cutoff.slice(0, 10)}` });
@@ -60,16 +86,12 @@ export async function ingest(ctx: RunContext): Promise<void> {
   const xPostUrls = new Set<string>();
   for (const f of fetchers(ctx)) {
     for (const q of qs) {
-      try {
-        const raw = await cache.through(`evidence/${f.via}`, { q, cutoff }, () => f.run(q));
-        if (f.via === "brightdata.serp") for (const u of xPostUrlsFromSerp(raw ?? [])) xPostUrls.add(u);
-        (raw ?? []).forEach((r, i) => {
-          const n = normalise(r, f.source, q, i);
-          if (n) items.push(n);
-        });
-      } catch (err) {
-        bus.log(`${f.via} "${q}" failed: ${(err as Error).message.slice(0, 160)}`, "warn");
-      }
+      const raw = await pull(ctx, f, q);
+      if (f.via === "brightdata.serp") for (const u of xPostUrlsFromSerp(raw ?? [])) xPostUrls.add(u);
+      (raw ?? []).forEach((r, i) => {
+        const n = normalise(r, f.source, q, i);
+        if (n) items.push(n);
+      });
     }
   }
 
