@@ -110,6 +110,7 @@ function TopBar() {
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [current, setCurrent] = useState<string>("");
   const [liveRuns, setLiveRuns] = useState<LiveRun[]>([]);
+  const [livePick, setLivePick] = useState("");
   const [liveErr, setLiveErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
@@ -149,7 +150,11 @@ function TopBar() {
       .then((h) => {
         if (cancelled) return h.disconnect();
         live.current = h;
-        h.onRuns(() => setLiveRuns(h.runs()));
+        h.onRuns(() => {
+          const list = h.runs();
+          setLiveRuns(list);
+          setLivePick((cur) => (cur && list.some((r) => r.runId === cur) ? cur : list[0]?.runId ?? ""));
+        });
         setLiveErr(null);
       })
       .catch((e) => setLiveErr((e as Error).message));
@@ -159,6 +164,10 @@ function TopBar() {
       live.current = null;
     };
   }, [source, player]);
+
+  useEffect(() => {
+    if (source === "live" && livePick) live.current?.watch(livePick);
+  }, [source, livePick]);
 
   async function choose(list: RunEntry[], id: string) {
     const entry = list.find((r) => r.id === id);
@@ -243,7 +252,7 @@ function TopBar() {
         </>
       ) : (
         <>
-          <select className="select" onChange={(e) => live.current?.watch(e.target.value)} defaultValue="">
+          <select className="select" value={livePick} onChange={(e) => setLivePick(e.target.value)}>
             <option value="" disabled>
               {liveErr ? "Not connected" : liveRuns.length ? "Choose a live run" : "Waiting for runs…"}
             </option>
