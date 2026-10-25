@@ -263,6 +263,11 @@ export interface BacktestCase {
   realName: string;
   alias: string;
   aliasTerms: string[];
+  /**
+   * Real-world phrases used only to retrieve pre-cutoff posts. They are
+   * stripped by the anonymizer before any model sees the text.
+   */
+  searchTerms?: string[];
   brief: Brief;
   actual: {
     source: string;

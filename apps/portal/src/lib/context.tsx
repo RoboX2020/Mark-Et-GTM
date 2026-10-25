@@ -16,6 +16,16 @@ export interface Nav {
 export const PlayerCtx = createContext<Player | null>(null);
 export const NavCtx = createContext<Nav | null>(null);
 
+export interface DateFilter {
+  /** Inclusive YYYY-MM-DD. Evidence after this date is hidden. */
+  through: string;
+  setThrough: (day: string) => void;
+  /** The run's pre-launch cutoff. The forecast was computed at this date. */
+  cutoff: string;
+}
+
+export const DateCtx = createContext<DateFilter | null>(null);
+
 /** Subscribes a component to the run state; re-renders at most once per frame. */
 export function useRun(): { state: RunState; player: Player; version: number } {
   const player = useContext(PlayerCtx)!;
@@ -25,4 +35,8 @@ export function useRun(): { state: RunState; player: Player; version: number } {
 
 export function useNav(): Nav {
   return useContext(NavCtx)!;
+}
+
+export function useDateFilter(): DateFilter {
+  return useContext(DateCtx)!;
 }

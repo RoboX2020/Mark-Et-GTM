@@ -1,13 +1,16 @@
 import { useState } from "react";
 import type { EvidenceItem } from "@market/core";
-import { useRun } from "../lib/context";
+import { useDateFilter, useRun } from "../lib/context";
 import { pct } from "../lib/format";
 
 export function Evidence() {
   const { state } = useRun();
+  const date = useDateFilter();
   const [src, setSrc] = useState("all");
-  const sources = [...new Set(state.evidence.map((e) => e.source))];
-  const items = state.evidence.filter((e) => src === "all" || e.source === src);
+  const inWindow = state.evidence.filter((e) => !date.through || e.publishedAt.slice(0, 10) <= date.through);
+  const heldOut = state.evidence.length - inWindow.length;
+  const sources = [...new Set(inWindow.map((e) => e.source))];
+  const items = inWindow.filter((e) => src === "all" || e.source === src);
 
   return (
     <div className="stack">
@@ -15,14 +18,16 @@ export function Evidence() {
         <div>
           <h2>Evidence</h2>
           <div className="muted" style={{ fontSize: 13 }}>
-            What the market was saying before {state.cutoff?.slice(0, 10)}. Author identities are dropped at ingestion.
+            Date filter {date.through || state.cutoff?.slice(0, 10)}
+            {date.cutoff ? ` · forecast cutoff ${date.cutoff}` : ""}. Showing {inWindow.length} of {state.evidence.length} posts
+            {heldOut ? ` · ${heldOut} hidden because they are later` : ", all on or before this day"}. Author identities are dropped at ingestion.
           </div>
         </div>
         <div className="seg">
-          <button className={src === "all" ? "on" : ""} onClick={() => setSrc("all")}>all {state.evidence.length}</button>
+          <button className={src === "all" ? "on" : ""} onClick={() => setSrc("all")}>all {inWindow.length}</button>
           {sources.map((s) => (
             <button key={s} className={src === s ? "on" : ""} onClick={() => setSrc(s)}>
-              {s.replaceAll("_", " ")} {state.evidence.filter((e) => e.source === s).length}
+              {s.replaceAll("_", " ")} {inWindow.filter((e) => e.source === s).length}
             </button>
           ))}
         </div>

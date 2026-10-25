@@ -1,0 +1,49 @@
+{
+  "id": "meta-rayban",
+  "realName": "Ray-Ban Meta smart glasses",
+  "alias": "Product M",
+  "aliasTerms": ["Ray-Ban Meta", "RayBan Meta", "Ray-Ban", "RayBan", "Meta", "Zuckerberg", "EssilorLuxottica", "Essilor Luxottica"],
+  "searchTerms": ["Ray-Ban Meta glasses", "Ray-Ban smart glasses", "Meta camera sunglasses"],
+  "brief": {
+    "product": {
+      "name": "Ray-Ban Meta smart glasses",
+      "description": "Everyday sunglasses with a camera, open-ear speakers, and a voice assistant. You take photos and video hands-free, listen to music, and ask the assistant questions. They look like ordinary glasses and start shipping this autumn.",
+      "category": "smart glasses"
+    },
+    "price": { "amount": 299, "currency": "USD", "model": "one_time" },
+    "targetMarket": "people who already buy premium sunglasses and want a camera that is not a phone",
+    "geography": "US, UK, Canada, Australia, and parts of Europe",
+    "competitors": ["Snap Spectacles", "Bose Frames", "Apple Watch", "phone camera"],
+    "channels": ["retail", "x", "reddit", "tiktok", "word_of_mouth"],
+    "launchDate": "2023-10-17",
+    "addressableMarket": 10000000,
+    "population": 300,
+    "rounds": 6,
+    "monthsPerRound": 1,
+    "seed": 2023,
+    "budget": {
+      "startingCash": 500000000,
+      "monthlyMarketing": 8000000,
+      "fixedMonthlyCosts": 15000000,
+      "cogsPct": 0.45,
+      "monthlyChurn": 0.02
+    }
+  },
+  "actual": {
+    "source": "Launch: Ray-Ban Meta glasses were announced at Meta Connect on 2023-09-27 and began shipping 2023-10-17 at $299 (EssilorLuxottica and Meta product pages). 2024 sales: Mark Zuckerberg told staff that more than 1 million units sold in 2024 (The Verge, 2025-01-30). Cumulative: EssilorLuxottica CEO Francesco Milleri said more than 2 million had been sold by the 2025-02-13 earnings call (UploadVR, 2025-02-13; Reuters, 2025-02-13). The prior Ray-Ban Stories generation sold fewer than 300,000 in a longer window (Wall Street Journal memo, cited by UploadVR). Addressable market of 10 million is a stated assumption: buyers of premium sunglasses in the first launch countries, not a company figure. Month 3 (about 800,000) is the pre-2024 remainder implied by 2 million cumulative minus a bit over 1 million in 2024, rounded down. Month 15 (about 2 million, February 2025) is the sourced cumulative milestone.",
+    "adoption": [
+      { "month": 3, "cumulative": 0.08 },
+      { "month": 12, "cumulative": 0.15 },
+      { "month": 15, "cumulative": 0.2 }
+    ],
+    "topComplaints": [
+      "Short battery life",
+      "Discomfort wearing them for long sessions",
+      "Privacy worries about the camera",
+      "Voice assistant was limited at launch",
+      "Open-ear audio leaks in quiet rooms"
+    ],
+    "priceOutcome": "fair",
+    "notes": "Adoption is cumulative units as a share of the 10 million addressable market above. The product was a commercial success relative to earlier camera glasses: about 2 million units by February 2025, and EssilorLuxottica called it a great success and raised production plans. Price stayed at a $299 entry point and was not the thing that held it back. The budget lines in the brief are assumptions for the finance layer and are not scored. The month-12 point (1.5 million) sits between the sourced 2024 run-rate and the February 2025 cumulative; it is an interpolation, not a separate disclosure."
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "rabbit-r1",
+  "realName": "Rabbit R1",
+  "alias": "Product R",
+  "aliasTerms": ["Rabbit R1", "rabbit.tech", "Jesse Lyu", "Large Action Model", "LAM"],
+  "searchTerms": ["Rabbit R1", "Rabbit R1 AI device", "orange AI gadget CES"],
+  "brief": {
+    "product": {
+      "name": "Rabbit R1",
+      "description": "A small orange handheld with a screen, a camera, a scroll wheel, and a push-to-talk button. It is supposed to use your apps for you: order food, book a ride, and answer questions, without you opening those apps on a phone. No monthly fee.",
+      "category": "AI handheld"
+    },
+    "price": { "amount": 199, "currency": "USD", "model": "one_time" },
+    "targetMarket": "early adopters who want an AI assistant that takes actions, not just chat",
+    "geography": "US and international preorder",
+    "competitors": ["Humane Ai Pin", "ChatGPT app", "iPhone", "Google Pixel"],
+    "channels": ["x", "reddit", "tiktok", "youtube", "word_of_mouth"],
+    "launchDate": "2024-04-24",
+    "addressableMarket": 500000,
+    "population": 300,
+    "rounds": 6,
+    "monthsPerRound": 1,
+    "seed": 2024,
+    "budget": {
+      "startingCash": 30000000,
+      "monthlyMarketing": 500000,
+      "fixedMonthlyCosts": 1500000,
+      "cogsPct": 0.55,
+      "monthlyChurn": 0.15
+    }
+  },
+  "actual": {
+    "source": "Preorders: first 10,000 units sold out in a day at CES, then a second 10,000 (The Verge, 2024-01-10). Ship date used as launch: late April 2024, with reviews on 2024-04-24. Units: CEO Jesse Lyu said 130,000 sold by Collision in June 2024 (Forbes, 2024-06-18). Usage: Lyu later said about 5,000 people were using a device at any time among roughly 100,000 buyers (The Verge, 2024-09-25). Reviews at ship called the device unfinished (The Verge, 'Nothing to see here', 2024-04-24). Addressable market of 500,000 is a stated assumption for early-adopter AI gadgets, not a company figure. Budget lines are not scored.",
+    "adoption": [
+      { "month": 1, "cumulative": 0.2 },
+      { "month": 2, "cumulative": 0.26 },
+      { "month": 5, "cumulative": 0.26 }
+    ],
+    "topComplaints": [
+      "Could not reliably complete tasks in real apps",
+      "Felt like a phone app in a separate box",
+      "Buggy and unfinished at launch",
+      "The action-model claim did not match what shipped",
+      "Little reason to carry it instead of a smartphone"
+    ],
+    "priceOutcome": "fair",
+    "notes": "Cumulative adoption is units sold divided by the 500,000 addressable market, so the sales spike is real: about 100,000 to 130,000 units in the first two months, then flat. That is not the same as retention. By September 2024 only about 5,000 people were using one at a time. The price of $199 was not the objection reviewers led with. A close prediction sells briskly at first and then stalls, and it names the 'why isn't this an app' objection before ship reviews existed."
+  }
+}

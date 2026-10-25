@@ -1,9 +1,10 @@
-import { useRun } from "../lib/context";
+import { useDateFilter, useRun } from "../lib/context";
 import { pct } from "../lib/format";
 import { LineChart } from "../components/Charts";
 
 export function Backtest() {
   const { state } = useRun();
+  const date = useDateFilter();
   const bt = state.backtest;
   const mk = state.marketBacktest;
 
@@ -22,7 +23,7 @@ export function Backtest() {
         <>
           <div className="row between wrap">
             <div>
-              <span className="eyebrow">Backtest · data cutoff {bt.cutoff.slice(0, 10)}</span>
+              <span className="eyebrow">Backtest · data cutoff {bt.cutoff.slice(0, 10)}{date.through && date.through !== bt.cutoff.slice(0, 10) ? ` · evidence filter ${date.through}` : ""}</span>
               <h2 style={{ marginTop: 4 }}>
                 {bt.alias} <span className="muted" style={{ fontSize: 16 }}>revealed as</span> {bt.realName}
               </h2>

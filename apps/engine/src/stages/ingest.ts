@@ -19,7 +19,11 @@ const MIN_LIVE_EVIDENCE = 20;
 
 function queries(ctx: RunContext): string[] {
   const b = ctx.brief;
-  const q = [b.product.category, `${b.product.category} app ${b.targetMarket}`];
+  const q = [
+    ...(ctx.backtest?.searchTerms ?? []),
+    b.product.category,
+    `${b.product.category} ${b.targetMarket}`,
+  ];
   for (const c of b.competitors.slice(0, 3)) q.push(`${c} alternative`, `${c} too expensive`);
   return [...new Set(q)].slice(0, 6);
 }
@@ -38,8 +42,14 @@ function fetchers(ctx: RunContext): Fetcher[] {
   if (ctx.cfg.mode === "mock") return out;
   if (bd.token) {
     out.push({ source: "news", via: "brightdata.serp", run: (q) => brightdataNews(bd, q, ctx.cutoff) });
+    // Reddit and TikTok discovery only support a rolling window ("past year"), not a
+    // historical end date. For an old backtest they return today's posts, which the
+    // cutoff then drops, after a multi-minute scrape. News search can cap cd_max.
+    const cutoffAgeDays = (Date.now() - new Date(ctx.cutoff).getTime()) / 86_400_000;
+    const historical = Boolean(ctx.backtest) && cutoffAgeDays > 400;
     for (const [source, id] of Object.entries(bd.datasets) as [EvidenceSource, string][]) {
       if (!id || source === "x") continue;
+      if (historical && (source === "reddit" || source === "tiktok")) continue;
       out.push({
         source,
         via: `brightdata.${source}`,

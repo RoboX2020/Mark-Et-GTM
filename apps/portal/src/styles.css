@@ -155,6 +155,8 @@ h3 { font-size: 17px; line-height: 1.3; }
 .player { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex: 1 1 560px; min-width: min(100%, 520px); max-width: 100%; }
 .clock { font-family: var(--mono); font-size: 12px; color: var(--ink-3); min-width: 78px; text-align: right; }
 .top-note { flex: 1 1 180px; min-width: 0; font-size: 12px; color: var(--ink-3); }
+.date-filter { flex: 0 0 auto; gap: 2px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.date-filter input { padding: 5px 10px; font-size: 12px; border-radius: 999px; font-family: var(--mono); }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-3); }
 .field input, .field textarea {
   border: 1px solid var(--line-2); background: var(--card); color: var(--ink);
