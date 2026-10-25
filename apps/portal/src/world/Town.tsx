@@ -18,7 +18,8 @@ const TOWER_H = 7.2;
 const SP = 0.95;
 const MAX_PULSES = 96;
 const ARC_SEG = 14;
-const MAX_BUBBLES = 4;
+const MAX_BUBBLES = 3;
+const ORBIT_AXIS = new THREE.Vector3(0, 1, 0);
 
 // ── Layout ──────────────────────────────────────────────────────────
 
@@ -300,18 +301,18 @@ function Tower({ name, player, onOpenReport }: { name: string; player: Player; o
         <boxGeometry args={[0.8, 1.0, 0.05]} />
         <meshStandardMaterial color="#6b3b26" roughness={1} />
       </mesh>
-      <Html position={[0, TOWER_H + 1.5, 0]} center zIndexRange={[30, 10]} className="w-html">
-        <div className={`w-tower-sign ${verdict ? "done" : ""}`}>
-          <div className="w-tower-name">{name}</div>
-          {verdict && (
-            <div className={`w-verdict ${verdict.tone}`}>
-              <strong>{verdict.headline}</strong>
-              <span>{verdict.detail}</span>
-              <button className="w-btn small" onClick={onOpenReport}>Open full report</button>
-            </div>
-          )}
-        </div>
+      <Html position={[0, TOWER_H - 0.55, 0]} center zIndexRange={[60, 50]} className="w-html">
+        <div className="w-tower-name">{name}</div>
       </Html>
+      {verdict && (
+        <Html position={[0, TOWER_H * 0.5, 0]} center zIndexRange={[70, 60]} className="w-html">
+          <div className={`w-verdict ${verdict.tone}`}>
+            <strong>{verdict.headline}</strong>
+            <span>{verdict.detail}</span>
+            <button className="w-btn small" onClick={onOpenReport}>Open full report</button>
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -396,9 +397,10 @@ function Residents({
       bubbleKey: 0,
       launch: -100,
       roundPulse: -100,
+      boundsAt: -10,
       sparkDir: Array.from({ length: 48 }, (_, i) => {
         const h = layout.hoods.length ? layout.hoods[i % layout.hoods.length] : null;
-        return { x: (h?.cx ?? 0) + (hash(i) - 0.5) * 4, z: (h?.cz ?? 0) + (hash(i + 3) - 0.5) * 4, d: 0.8 + hash(i + 9) * 0.6 };
+        return { x: (h?.cx ?? 0) + (hash(i) - 0.5) * 4, z: (h?.cz ?? 0) + (hash(i + 3) - 0.5) * 4, d: 1.3 + hash(i + 9) * 1.0 };
       }),
     };
   }, [N, layout]);
@@ -541,6 +543,11 @@ function Residents({
       }
     }
     for (const r of [bodies.current, heads.current, icons.adopt.current, icons.wait.current, icons.reject.current]) if (r) r.instanceMatrix.needsUpdate = true;
+    // Instanced bounds are cached on first raycast; refresh them as residents move so clicks keep landing.
+    if (t - sim.boundsAt > 1) {
+      sim.boundsAt = t;
+      for (const r of [bodies.current, heads.current]) if (r) r.boundingSphere = null;
+    }
     if (colorDirty && bodies.current?.instanceColor) bodies.current.instanceColor.needsUpdate = true;
 
     // Word-of-mouth pulses: an arc that lights up from speaker to listener.
@@ -592,7 +599,9 @@ function Residents({
       if (orbs.current.instanceColor) orbs.current.instanceColor.needsUpdate = true;
     }
 
-    // Launch: the package lifts off the tower, then a wave and sparks spread over the town.
+    // Launch: the package lifts off the tower, bursts, and a wave and sparks spread over the town.
+    const RISE = 1.4;
+    const WAVE = 3.2;
     const lk = sim.launch < 0 ? -1 : t - sim.launch;
     if (package_.current) {
       const g = package_.current;
@@ -601,37 +610,44 @@ function Residents({
         g.position.set(0, TOWER_H + 1.0 + Math.sin(t * 2) * 0.12, 0);
         g.rotation.y = t * 0.6;
         g.scale.setScalar(1);
-      } else if (lk < 0.9) {
+      } else if (lk < RISE) {
+        const e = lk / RISE;
         g.visible = true;
-        g.position.y = TOWER_H + 1.0 + lk * 4.5;
-        g.rotation.y += 0.25;
-        g.scale.setScalar(1 + lk * 0.8);
+        g.position.y = TOWER_H + 1.0 + e * e * 6;
+        g.rotation.y += 0.2;
+        g.scale.setScalar(1 + e * 0.9 + (e > 0.85 ? (e - 0.85) * 6 : 0));
       } else g.visible = false;
     }
-    const wk = Math.max(lk - 0.9, t - sim.roundPulse < 2.2 ? (t - sim.roundPulse) * 1.3 : -1);
+    const since = t - sim.roundPulse;
+    const wk = lk >= RISE && lk < RISE + WAVE ? lk - RISE : since < WAVE * 0.7 ? since : -1;
     if (wave.current) {
       const mat = wave.current.material as THREE.MeshBasicMaterial;
-      if (wk >= 0 && wk < 2.2) {
-        const r = 1 + (wk / 2.2) * layout.island;
+      const big = lk >= RISE && lk < RISE + WAVE;
+      if (wk >= 0) {
+        const span = big ? WAVE : WAVE * 0.7;
+        const e = 1 - Math.pow(1 - wk / span, 2);
+        const r = 1.5 + e * layout.island;
         wave.current.visible = true;
         wave.current.scale.set(r, r, 1);
-        mat.opacity = 0.55 * (1 - wk / 2.2) * (lk >= 0.9 && lk < 3.1 ? 1 : 0.45);
+        mat.opacity = (big ? 0.85 : 0.35) * (1 - wk / span);
       } else wave.current.visible = false;
     }
     if (beam.current) {
       const mat = beam.current.material as THREE.MeshBasicMaterial;
-      if (lk >= 0.7 && lk < 2.6) {
+      const bk = lk - RISE * 0.85;
+      if (bk >= 0 && bk < 2.8) {
         beam.current.visible = true;
-        mat.opacity = 0.5 * (1 - (lk - 0.7) / 1.9);
-        beam.current.scale.set(1 + (lk - 0.7) * 0.6, 1, 1 + (lk - 0.7) * 0.6);
+        mat.opacity = 0.7 * (1 - bk / 2.8);
+        const w = 1 + bk * 0.9;
+        beam.current.scale.set(w, 1, w);
       } else beam.current.visible = false;
     }
     if (sparks.current) {
       sim.sparkDir.forEach((sd, i) => {
-        const k = (lk - 0.9) / sd.d;
-        const sc = k >= 0 && k <= 1 ? 0.28 * (1 - k * 0.6) : 0;
+        const k = (lk - RISE) / sd.d;
+        const sc = k >= 0 && k <= 1 ? 0.45 * (1 - k * 0.5) : 0;
         const kk = Math.min(1, Math.max(0, k));
-        m.compose(p.set(sd.x * kk, TOWER_H + 4.8 * (1 - kk) + 10 * kk * (1 - kk), sd.z * kk), q.setFromAxisAngle(tmp.y, t * 3 + i), s.set(sc, sc, sc));
+        m.compose(p.set(sd.x * kk, TOWER_H + 7 * (1 - kk) + 9 * kk * (1 - kk) + 0.6, sd.z * kk), q.setFromAxisAngle(tmp.y, t * 3 + i), s.set(sc, sc, sc));
         sparks.current!.setMatrixAt(i, m);
       });
       sparks.current.instanceMatrix.needsUpdate = true;
@@ -651,10 +667,15 @@ function Residents({
     const expired = bubbles.some((b) => t - b.born >= 3.8);
     let next = expired ? bubbles.filter((b) => t - b.born < 3.8) : bubbles;
     if (sim.queue.length && next.length < MAX_BUBBLES && t - sim.lastBubble > 0.9) {
-      const pick = sim.queue.pop()!;
-      sim.queue.length = Math.min(sim.queue.length, 10);
+      const busy = new Set(next.map((b) => layout.hoodOf[b.agent]));
+      let k = sim.queue.length - 1;
+      while (k >= 0 && busy.has(layout.hoodOf[sim.queue[k].agent])) k--;
+      if (k >= 0) {
+        const [pick] = sim.queue.splice(k, 1);
+        next = [...next, { ...pick, key: sim.bubbleKey++, born: t }];
+      }
+      if (sim.queue.length > 10) sim.queue.splice(0, sim.queue.length - 10);
       sim.lastBubble = t;
-      if (!next.some((b) => b.agent === pick.agent)) next = [...next, { ...pick, key: sim.bubbleKey++, born: t }];
     }
     if (next !== bubbles) setBubbles(next);
   });
@@ -665,6 +686,7 @@ function Residents({
         ref={bodies}
         args={[geo.body, undefined, N]}
         castShadow
+        frustumCulled={false}
         onClick={(e: ThreeEvent<MouseEvent>) => {
           e.stopPropagation();
           if (e.instanceId !== undefined) onAgent(layout.ids[e.instanceId]);
@@ -678,6 +700,7 @@ function Residents({
         ref={heads}
         args={[geo.head, undefined, N]}
         castShadow
+        frustumCulled={false}
         onClick={(e: ThreeEvent<MouseEvent>) => {
           e.stopPropagation();
           if (e.instanceId !== undefined) onAgent(layout.ids[e.instanceId]);
@@ -717,11 +740,11 @@ function Residents({
         <pointLight color="#ffc47a" intensity={6} distance={7} />
       </group>
       <mesh ref={wave} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.25, 0]} visible={false}>
-        <ringGeometry args={[0.86, 1, 96]} />
+        <ringGeometry args={[0.8, 1, 96]} />
         <meshBasicMaterial color="#ffd08a" transparent depthWrite={false} toneMapped={false} />
       </mesh>
       <mesh ref={beam} position={[0, TOWER_H + 8, 0]} visible={false}>
-        <cylinderGeometry args={[0.5, 0.9, 16, 24, 1, true]} />
+        <cylinderGeometry args={[0.7, 1.3, 16, 24, 1, true]} />
         <meshBasicMaterial color="#ffe0a8" transparent depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
       <instancedMesh ref={sparks} args={[undefined, undefined, 48]} frustumCulled={false}>
@@ -730,7 +753,7 @@ function Residents({
       </instancedMesh>
       {bubbles.map((b) => (
         <Html key={b.key} position={[layout.home[b.agent * 2], 1.75, layout.home[b.agent * 2 + 1]]} center distanceFactor={22} zIndexRange={[40, 20]} className="w-html no-pointer">
-          <div className={`w-bubble ${b.tone}`}>{b.text.length > 84 ? `${b.text.slice(0, 82)}…` : b.text}</div>
+          <div className={`w-bubble ${b.tone}`}>{b.text.length > 110 ? `${b.text.slice(0, 108)}…` : b.text}</div>
         </Html>
       ))}
     </>
@@ -781,27 +804,32 @@ function NeighbourLines({ layout, player, id, agentPos }: { layout: Layout; play
 
 function CameraRig({ layout, selection, agentPos, autoOrbit }: { layout: Layout | null; selection: Selection; agentPos: MutableRefObject<Float32Array>; autoOrbit: boolean }) {
   const controls = useRef<ElementRef<typeof OrbitControls>>(null);
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const state = useRef({ interacting: false, lastTouch: -100, focusUntil: 0, placedFor: "" });
   const island = layout?.island ?? 16;
 
   useEffect(() => {
     if (!layout || state.current.placedFor === layout.key) return;
     state.current.placedFor = layout.key;
-    const d = island * 1.55;
+    const d = island * (size.width / size.height < 1.1 ? 2.25 : 1.75);
     camera.position.set(d * 0.72, d * 0.62, d * 0.72);
     camera.lookAt(0, 1, 0);
-  }, [layout, island, camera]);
+  }, [layout, island, camera, size.width, size.height]);
 
   useEffect(() => {
     state.current.focusUntil = performance.now() / 1000 + 1.4;
   }, [selection]);
 
-  useFrame(({ clock }) => {
+  const offset = useMemo(() => new THREE.Vector3(), []);
+  useFrame((_, delta) => {
     const c = controls.current;
     if (!c) return;
-    const t = clock.elapsedTime;
-    c.autoRotate = autoOrbit && !state.current.interacting && t - state.current.lastTouch > 5 && !selection;
+    const now = performance.now() / 1000;
+    // Time-based rather than OrbitControls.autoRotate, which is per frame and crawls on slow GPUs.
+    if (autoOrbit && !state.current.interacting && now - state.current.lastTouch > 5 && !selection) {
+      offset.copy(camera.position).sub(c.target).applyAxisAngle(ORBIT_AXIS, Math.min(delta, 0.1) * 0.09);
+      camera.position.copy(c.target).add(offset);
+    }
     if (performance.now() / 1000 < state.current.focusUntil) {
       let tx = 0;
       let tz = 0;
@@ -828,7 +856,6 @@ function CameraRig({ layout, selection, agentPos, autoOrbit }: { layout: Layout 
       ref={controls}
       makeDefault
       enableDamping
-      autoRotateSpeed={0.45}
       maxPolarAngle={Math.PI * 0.44}
       minDistance={6}
       maxDistance={island * 3}

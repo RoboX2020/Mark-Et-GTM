@@ -94,7 +94,7 @@ export class Player {
     this.last = performance.now();
     const loop = (now: number) => {
       if (!this.playing) return;
-      this.advance((now - this.last) * this.speed);
+      this.advance(now - this.last);
       this.last = now;
       this.raf = requestAnimationFrame(loop);
     };
@@ -126,13 +126,37 @@ export class Player {
     this.notify();
   }
 
-  private advance(dt: number) {
-    this.vt += dt;
-    if (this.open) this.vt = Math.min(this.vt, this.duration);
+  /**
+   * Optional rate multiplier on top of `speed`: above 1 fast-forwards stages
+   * with nothing to watch, 0 holds the clock (e.g. for an intro). It is
+   * re-checked after every event, so a boost never overshoots into the part
+   * that should play at normal speed.
+   */
+  boost: ((s: RunState) => number) | null = null;
+
+  /** `dtReal` is wall-clock ms since the last frame. */
+  private advance(dtReal: number) {
+    let budget = dtReal;
     let n = 0;
-    while (this.idx < this.envs.length && this.at[this.idx] <= this.vt) {
-      applyEvent(this.state, this.envs[this.idx++]);
-      n++;
+    while (budget > 0) {
+      const mult = this.boost ? this.boost(this.state) : 1;
+      if (mult <= 0) break;
+      const rate = this.speed * mult;
+      if (this.idx >= this.envs.length) {
+        if (!this.open) this.vt += budget * rate;
+        break;
+      }
+      const need = (this.at[this.idx] - this.vt) / rate;
+      if (need > budget) {
+        this.vt += budget * rate;
+        break;
+      }
+      budget -= Math.max(0, need);
+      this.vt = Math.max(this.vt, this.at[this.idx]);
+      while (this.idx < this.envs.length && this.at[this.idx] <= this.vt) {
+        applyEvent(this.state, this.envs[this.idx++]);
+        n++;
+      }
     }
     if (this.idx >= this.envs.length && !this.open) this.pause();
     if (n) this.notify();
