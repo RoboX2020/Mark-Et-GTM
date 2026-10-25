@@ -344,3 +344,19 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+.world-btn {
+  border-color: var(--live);
+  color: var(--live);
+  font-weight: 600;
+}
+.world-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: #f2e8d8;
+  color: #5a4e40;
+  font: 600 15px var(--sans);
+}

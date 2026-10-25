@@ -8,6 +8,7 @@
     "demo": "tsx src/cli.ts demo",
     "backtest": "tsx src/cli.ts backtest",
     "backtest-markets": "tsx src/cli.ts backtest-markets",
+    "serve": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
