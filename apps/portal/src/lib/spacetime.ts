@@ -31,7 +31,7 @@ export async function connectLive(player: Player): Promise<LiveHandle> {
   if (!loader) throw new Error("SpacetimeDB bindings not generated. Run `spacetime generate` (see spacetime/README.md).");
   // Generated code; its exact table accessor names come from the module.
   const mod = (await loader()) as { DbConnection: any };
-  const uri = import.meta.env.VITE_SPACETIMEDB_URI ?? "ws://127.0.0.1:3000";
+  const uri = import.meta.env.VITE_SPACETIMEDB_URI ?? "wss://maincloud.spacetimedb.com";
   const db = import.meta.env.VITE_SPACETIMEDB_DB_NAME ?? "market-sim";
 
   let runsCb: () => void = () => {};
@@ -85,6 +85,7 @@ export async function connectLive(player: Player): Promise<LiveHandle> {
     },
     onRuns: (cb) => {
       runsCb = cb;
+      cb();
     },
     disconnect: () => conn.disconnect(),
   };
