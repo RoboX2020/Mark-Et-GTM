@@ -41,7 +41,7 @@ export function Overview() {
 
       {synthetic > 0 && (
         <div className="callout warn">
-          {synthetic} of {state.evidence.length} posts in this run are offline fixtures, not scraped data. Add API keys and run in live mode for a real market read.
+          {synthetic} of {state.evidence.length} evidence posts in this run are built-in offline fixtures, not data researched about this company. Live mode changes who answers (real model calls instead of demo agents); every result stays simulated - never a real market read.
         </div>
       )}
 

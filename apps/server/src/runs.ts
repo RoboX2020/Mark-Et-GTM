@@ -47,6 +47,7 @@ export class RunManager {
     private runsDir: string,
     private opts: {
       budget?: Budget; // required in live mode, absent in mock
+      ledgerHealthy?: () => boolean; // false = durable spend store lost: refuse billable runs
       model: string;
       wrapClient?: ClientWrap;
       perRunCapUsd: number;
@@ -79,6 +80,9 @@ export class RunManager {
       throw new RefusedError("daily run limit reached; try again tomorrow");
 
     if (this.opts.budget) {
+      // Fail closed: without a writable durable ledger the cap cannot be trusted.
+      if (this.opts.ledgerHealthy && !this.opts.ledgerHealthy())
+        throw new RefusedError("run refused: the spend ledger is unavailable, so billable runs are closed");
       const estimate = estimateRunCostUsd(brief, this.opts.model, this.cfg.swarmBatch);
       if (estimate > this.opts.perRunCapUsd)
         throw new RefusedError(`run refused: worst-case estimate $${estimate.toFixed(2)} exceeds the per-run cap $${this.opts.perRunCapUsd.toFixed(2)}`);

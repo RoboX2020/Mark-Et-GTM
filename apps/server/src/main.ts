@@ -7,7 +7,7 @@ import type { ClientWrap } from "@market/engine/llm/router";
 import { Budget } from "./budget.js";
 import { buildBrief, InputError } from "./brief.js";
 import { BudgetGuard } from "./guard.js";
-import { SpendLedger } from "./ledger.js";
+import { spendStoreFromEnv, type SpendStore } from "./ledger.js";
 import { RefusedError, RunManager, toManifestEntry } from "./runs.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -24,6 +24,13 @@ export interface ServerOptions {
   wrapClient?: ClientWrap;
   /** Live count of calls whose reservations are still outstanding (current run's guard). */
   unresolvedCount?: () => number;
+  /** False when the durable spend ledger cannot be written: billable runs refuse (fail closed). */
+  ledgerHealthy?: () => boolean;
+  /** Required x-operator-token header value for starting runs in live mode. */
+  operatorToken?: string;
+  /** Which durable ledger backend is active (file|github), for /api/health. */
+  ledgerBackend?: string;
+  spendStore?: SpendStore;
   perRunCapUsd: number;
   maxRunsPerIpPerDay: number;
   maxRunsPerDay: number;
@@ -120,6 +127,9 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
                 remainingUsd: Number(opts.budget.remaining.toFixed(4)),
                 calls: opts.budget.calls,
                 unresolved: opts.unresolvedCount ? opts.unresolvedCount() : 0,
+                ledgerBackend: opts.ledgerBackend,
+                ledgerHealthy: opts.ledgerHealthy ? opts.ledgerHealthy() : undefined,
+                billableRuns: "operator-only",
               }
             : null,
           labeling: "All results are simulated by AI-generated synthetic users - not real customer validation.",
@@ -127,6 +137,12 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
       }
 
       if (url.pathname === "/api/runs" && req.method === "POST") {
+        // Billable runs are operator-only: the public site replays finished runs.
+        if (opts.budget) {
+          const tok = req.headers["x-operator-token"];
+          if (!opts.operatorToken || tok !== opts.operatorToken)
+            return send(res, 403, { error: "live runs are operator-only; finished runs are open to everyone" });
+        }
         const raw = await readBody(req);
         let parsed: unknown;
         try {
@@ -169,14 +185,19 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
   return { server, manager };
 }
 
-/** Builds server options from the environment. Live mode refuses to boot without a key and a budget cap. */
-export function optionsFromEnv(): ServerOptions {
+/** Builds server options from the environment. Live mode refuses to boot without a key,
+ *  a budget cap, a durable spend ledger that loads, and an operator token. */
+export async function optionsFromEnv(): Promise<ServerOptions> {
   const mode = (env("MARKET_MODE", "mock") || "mock") as "live" | "mock";
   const cfg = loadConfig({ mode });
   const model = env("MARK8_MODEL", "claude-haiku-5-5");
   let budget: Budget | undefined;
   let wrapClient: ClientWrap | undefined;
   let unresolvedCount: (() => number) | undefined;
+  let ledgerHealthy: (() => boolean) | undefined;
+  let operatorToken: string | undefined;
+  let ledgerBackend: string | undefined;
+  let spendStore: SpendStore | undefined;
 
   if (mode === "live") {
     const key = env("ANTHROPIC_API_KEY") || (env("CLAUDE_KEY_FILE") ? fs.readFileSync(env("CLAUDE_KEY_FILE"), "utf8").trim() : "");
@@ -189,9 +210,22 @@ export function optionsFromEnv(): ServerOptions {
     cfg.anthropic.model = model;
     cfg.anthropic.effort = "low";
     cfg.swarmMix = { claude: 1 };
-    const ledger = new SpendLedger(env("MARK8_SPEND_LEDGER", path.join(REPO_ROOT, "data", "server", "spend.json")));
-    budget = new Budget(capUsd, ledger.load());
-    budget.onChange = (committed) => ledger.save(committed);
+    // Durable committed-spend store. A store that cannot be read fails closed
+    // (throws here: live mode refuses to boot); a store that stops writing
+    // latches unhealthy and new billable runs are refused.
+    const ledger = await spendStoreFromEnv(env, path.join(REPO_ROOT, "data", "server", "spend.json"));
+    spendStore = ledger.store;
+    ledgerBackend = ledger.backend;
+    budget = new Budget(capUsd, ledger.restored);
+    budget.onChange = (committed) => {
+      void ledger.store.save(committed).catch(() => {}); // backends latch their own failure
+    };
+    ledgerHealthy = () => ledger.store.healthy();
+    // Billable runs are operator-only until public runtime authority is settled:
+    // without a token there is no way to prove the caller is the operator, so
+    // live mode refuses to boot rather than expose billable runs to visitors.
+    operatorToken = env("MARK8_OPERATOR_TOKEN");
+    if (!operatorToken) throw new Error("live mode needs MARK8_OPERATOR_TOKEN (billable runs are operator-only)");
     let guard: BudgetGuard | undefined;
     wrapClient = (client, usage) => {
       // One guard per run (each run has its own usage meter); the budget is shared.
@@ -212,6 +246,10 @@ export function optionsFromEnv(): ServerOptions {
     model,
     wrapClient,
     unresolvedCount,
+    ledgerHealthy,
+    operatorToken,
+    ledgerBackend,
+    spendStore,
     perRunCapUsd: Number(env("MARK8_PER_RUN_CAP_USD", "1")),
     maxRunsPerIpPerDay: Number(env("MARK8_MAX_RUNS_PER_IP_PER_DAY", "3")),
     maxRunsPerDay: Number(env("MARK8_MAX_RUNS_PER_DAY", "20")),
@@ -220,7 +258,7 @@ export function optionsFromEnv(): ServerOptions {
 
 // Booted directly (not imported by tests).
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const opts = optionsFromEnv();
+  const opts = await optionsFromEnv();
   const { server } = createServer(opts);
   server.listen(opts.port, opts.host, () => {
     console.log(`mark8 server on http://${opts.host}:${opts.port} mode=${opts.cfg.mode}${opts.budget ? ` budget=$${opts.budget.cap}` : ""}`);
