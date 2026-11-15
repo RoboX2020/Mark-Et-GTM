@@ -6,7 +6,7 @@ import { Cache } from "./cache.js";
 import type { EngineConfig } from "./config.js";
 import { Anonymizer } from "./connectors/anonymize.js";
 import { createContext } from "./context.js";
-import { LlmRouter } from "./llm/router.js";
+import { LlmRouter, type ClientWrap } from "./llm/router.js";
 import { ConsoleSink, JsonlSink, SpacetimeSink } from "./sinks/index.js";
 import { ingest } from "./stages/ingest.js";
 import { buildGraph } from "./stages/graph.js";
@@ -23,6 +23,8 @@ export interface RunOptions {
   runId?: string;
   backtest?: BacktestCase;
   outFile?: string;
+  /** Wraps each real LLM client (e.g. budget guard); mock clients stay unwrapped. */
+  wrapClient?: ClientWrap;
 }
 
 export function makeSinks(cfg: EngineConfig, outFile: string): Sink[] {
@@ -36,7 +38,7 @@ export async function runSimulation(cfg: EngineConfig, opts: RunOptions): Promis
   const file = opts.outFile ?? path.join(cfg.dataDir, "runs", `${runId}.jsonl`);
   // Mock runs complete in milliseconds; stamp them with realistic durations so replays breathe.
   const bus = new EventBus(runId, makeSinks(cfg, file), { virtualTime: cfg.mode !== "live", startTs: Date.parse(`${opts.brief.launchDate}T09:00:00Z`) - 86400_000 });
-  const llm = new LlmRouter(cfg, bus);
+  const llm = new LlmRouter(cfg, bus, opts.wrapClient);
   const cache = new Cache(path.join(cfg.dataDir, "cache", "live"), cfg.mode);
 
   const bt = opts.backtest;

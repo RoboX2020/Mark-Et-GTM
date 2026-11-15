@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavCtx, PlayerCtx, useNav, useRun, type Nav, type TabId } from "./lib/context";
-import { fetchRun, fetchRuns, loadLocalFile, Player, type RunEntry } from "./lib/player";
+import { fetchRun, fetchRuns, fetchServerRuns, loadLocalFile, Player, type RunEntry } from "./lib/player";
 import { connectLive, liveAvailable, type LiveHandle, type LiveRun } from "./lib/spacetime";
 import { clock } from "./lib/format";
 import { Rail } from "./components/Rail";
@@ -160,17 +160,60 @@ function TopBar() {
     };
   }, [source, player]);
 
+  const followRef = useRef(0);
+
   async function choose(list: RunEntry[], id: string) {
     const entry = list.find((r) => r.id === id);
     if (!entry) return;
     setCurrent(id);
-    player.load(await fetchRun(entry));
+    if (entry.server && entry.status === "running") {
+      void follow(entry);
+    } else {
+      followRef.current++;
+      player.load(await fetchRun(entry));
+    }
     const url = new URL(location.href);
     url.searchParams.set("run", id);
     try {
       history.replaceState(null, "", url);
     } catch {
       /* sandboxed frames may refuse URL changes */
+    }
+  }
+
+  /** Tails a running server run into the player until the server marks it finished. */
+  async function follow(entry: RunEntry) {
+    const token = ++followRef.current;
+    player.startLive();
+    let lastSeq = -1;
+    for (;;) {
+      if (followRef.current !== token) return;
+      try {
+        const envs = await fetchRun(entry);
+        for (const e of envs) {
+          if (e.seq > lastSeq) {
+            player.push(e);
+            lastSeq = e.seq;
+          }
+        }
+        const serverRuns = await fetchServerRuns();
+        if (serverRuns) {
+          setRuns((prev) => {
+            const seen = new Set<string>();
+            return [...serverRuns, ...prev.filter((r) => !r.server)].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+          });
+        }
+        const rec = serverRuns?.find((r) => r.id === entry.id);
+        if (!rec || rec.status !== "running") {
+          // Finished: reload the complete log frozen at the end state.
+          player.load(await fetchRun(entry), { autoplay: false });
+          player.finish();
+          return;
+        }
+      } catch {
+        /* transient fetch failure - keep polling */
+      }
+      await new Promise((r) => setTimeout(r, 2500));
     }
   }
 
@@ -207,7 +250,7 @@ function TopBar() {
             {!runs.length && <option value="">No recorded runs</option>}
             {runs.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.label} · {r.kind.replace("_", " ")}
+                {r.label} · {r.kind.replace("_", " ")}{r.status === "running" ? " · running…" : ""}
               </option>
             ))}
           </select>
@@ -268,7 +311,16 @@ function TopBar() {
         </svg>
       </button>
       </header>
-      {briefOpen && <NewBrief onClose={() => setBriefOpen(false)} />}
+      {briefOpen && (
+        <NewBrief
+          onClose={() => setBriefOpen(false)}
+          onStarted={(entry) => {
+            setRuns((prev) => [entry, ...prev.filter((r) => r.id !== entry.id)]);
+            setCurrent(entry.id);
+            void follow(entry);
+          }}
+        />
+      )}
     </>
     );
   }

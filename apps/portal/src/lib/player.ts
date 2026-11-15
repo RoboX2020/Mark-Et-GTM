@@ -7,6 +7,41 @@ export interface RunEntry {
   kind: "simulation" | "backtest" | "market_backtest";
   mode: string;
   createdAt: string;
+  /** Server-hosted runs carry a lifecycle status ("running" until done). */
+  status?: string;
+  /** True when the event log is served by the Mark8 server under /api/runs/. */
+  server?: boolean;
+}
+
+export interface ServerHealth {
+  ok: boolean;
+  mode: string;
+  model: string;
+  activeRun: string | null;
+  budget: { capUsd: number; committedUsd: number; remainingUsd: number; calls: number; unresolved: number } | null;
+  labeling: string;
+}
+
+/** Null means no Mark8 server is reachable (static hosting, replay only). */
+export async function fetchHealth(): Promise<ServerHealth | null> {
+  try {
+    const res = await fetch("/api/health", { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as ServerHealth;
+  } catch {
+    return null;
+  }
+}
+
+/** Null means no Mark8 server is reachable. */
+export async function fetchServerRuns(): Promise<RunEntry[] | null> {
+  try {
+    const res = await fetch("/api/runs/index.json", { cache: "no-store" });
+    if (!res.ok) return null;
+    return ((await res.json()) as RunEntry[]).map((r) => ({ ...r, server: true }));
+  } catch {
+    return null;
+  }
 }
 
 const MAX_GAP_MS = 3000;
@@ -168,18 +203,47 @@ export class Player {
 }
 
 export async function fetchRuns(): Promise<RunEntry[]> {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}runs/index.json`, { cache: "no-store" });
-    if (!res.ok) return [];
-    return (await res.json()) as RunEntry[];
-  } catch {
-    return [];
-  }
+  const [server, local] = await Promise.all([
+    fetchServerRuns(),
+    (async (): Promise<RunEntry[]> => {
+      try {
+        const res = await fetch(`${import.meta.env.BASE_URL}runs/index.json`, { cache: "no-store" });
+        if (!res.ok) return [];
+        return (await res.json()) as RunEntry[];
+      } catch {
+        return [];
+      }
+    })(),
+  ]);
+  // Server runs first: they are the fresh ones. Same id in both lists dedupes to the server copy.
+  const seen = new Set<string>();
+  return [...(server ?? []), ...(local ?? [])].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
 }
 
 export async function fetchRun(entry: RunEntry): Promise<EventEnvelope[]> {
-  const res = await fetch(`${import.meta.env.BASE_URL}runs/${entry.file}`, { cache: "no-store" });
+  const url = entry.server ? `/api/runs/${entry.file}` : `${import.meta.env.BASE_URL}runs/${entry.file}`;
+  const res = await fetch(url, { cache: "no-store" });
   return parseJsonl(await res.text());
+}
+
+/** Posts a new brief to the Mark8 server; throws Error with the server's message on refusal. */
+export async function startServerRun(input: {
+  name?: string;
+  idea: string;
+  category?: string;
+  price?: number;
+  market?: string;
+  competitors?: string[];
+  population?: number;
+}): Promise<RunEntry> {
+  const res = await fetch("/api/runs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = (await res.json().catch(() => ({}))) as { run?: RunEntry; error?: string };
+  if (!res.ok || !body.run) throw new Error(body.error ?? `server refused (${res.status})`);
+  return { ...body.run, server: true };
 }
 
 export async function loadLocalFile(file: File): Promise<EventEnvelope[]> {

@@ -23,5 +23,12 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^2.1.9"
+  },
+  "exports": {
+    "./pipeline": "./src/pipeline.ts",
+    "./config": "./src/config.ts",
+    "./bus": "./src/bus.ts",
+    "./llm/router": "./src/llm/router.ts",
+    "./llm/types": "./src/llm/types.ts"
   }
 }

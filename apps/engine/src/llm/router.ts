@@ -4,6 +4,7 @@ import type { EventBus } from "../bus.js";
 import { ClaudeClient } from "./claude.js";
 import { GeminiClient, MockClient, RunpodClient } from "./swarm.js";
 import { UsageMeter, type JsonRequest, type LlmClient, type TextRequest } from "./types.js";
+export type ClientWrap = (client: LlmClient, usage: UsageMeter) => LlmClient;
 
 /**
  * Picks a backend per task. Claude does reasoning (graph, interviews, report).
@@ -11,6 +12,8 @@ import { UsageMeter, type JsonRequest, type LlmClient, type TextRequest } from "
  * live failure degrades to the request's deterministic mock and is logged, so
  * a run always completes and the log shows exactly what was simulated.
  */
+export type { UsageMeter } from "./types.js";
+
 export class LlmRouter {
   readonly usage = new UsageMeter();
   private clients = new Map<Backend, LlmClient>();
@@ -18,12 +21,20 @@ export class LlmRouter {
   private failures = new Map<Backend, number>();
   readonly swarmBackends: { backend: Backend; share: number }[];
 
-  constructor(private cfg: EngineConfig, private bus: EventBus) {
+  constructor(
+    private cfg: EngineConfig,
+    private bus: EventBus,
+    // Optional wrapper applied to every real backend client (e.g. the server's
+    // budget guard). Receives the shared usage meter so the wrapper can settle
+    // reserved cost against the client's recorded usage. Mock clients are never
+    // wrapped: they must stay free.
+    wrap: (client: LlmClient, usage: UsageMeter) => LlmClient = (c) => c,
+  ) {
     this.mock = new MockClient("mock", this.usage);
     if (cfg.mode === "live") {
-      if (cfg.anthropic.apiKey) this.clients.set("claude", new ClaudeClient(cfg.anthropic, this.usage));
-      if (cfg.gemini.apiKey) this.clients.set("gemini", new GeminiClient(cfg.gemini, this.usage));
-      if (cfg.runpod.apiKey && cfg.runpod.endpointId) this.clients.set("runpod", new RunpodClient(cfg.runpod, this.usage));
+      if (cfg.anthropic.apiKey) this.clients.set("claude", wrap(new ClaudeClient(cfg.anthropic, this.usage), this.usage));
+      if (cfg.gemini.apiKey) this.clients.set("gemini", wrap(new GeminiClient(cfg.gemini, this.usage), this.usage));
+      if (cfg.runpod.apiKey && cfg.runpod.endpointId) this.clients.set("runpod", wrap(new RunpodClient(cfg.runpod, this.usage), this.usage));
     }
     const avail = Object.entries(cfg.swarmMix).filter(([b, s]) => s > 0 && this.clients.has(b as Backend));
     const total = avail.reduce((a, [, s]) => a + s, 0);

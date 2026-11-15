@@ -15,6 +15,9 @@ export function Report() {
     <div className="report">
       <div className="eyebrow">Launch readiness report</div>
       <h1 style={{ marginTop: 6 }}>{b?.product.name}</h1>
+      <p className="subtle" style={{ fontSize: 13 }}>
+        Simulated output from AI-generated synthetic users - not real customer validation, not a sales forecast.
+      </p>
       <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
         Data up to {state.cutoff?.slice(0, 10)} · {state.personas.size} agents · {state.evidence.length} public posts · {state.signals.length} market signals
       </div>
