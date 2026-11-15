@@ -10,3 +10,7 @@ __pycache__/
 data/cache/live/
 apps/portal/dist/
 .vercel/
+
+# Server runtime state: spend ledger and ad-hoc run outputs stay local.
+data/server/
+data/runs/run_*.jsonl
