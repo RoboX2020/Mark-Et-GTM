@@ -2,82 +2,90 @@ import { describe, expect, it } from "vitest";
 import type { JsonRequest, LlmClient, TextRequest } from "@market/engine/llm/types";
 import { UsageMeter } from "@market/engine/llm/types";
 import { Budget, BudgetError, MAX_REQUEST_BYTES } from "./budget.js";
-import { budgetedClient } from "./guard.js";
+import { BudgetGuard, budgetedClient, meterCostUsd } from "./guard.js";
 import { z } from "zod";
 
 const Schema = z.object({ ok: z.boolean() });
 
 /** Fake backend that records the usage it is told to into the shared meter. */
-function fakeClient(opts: { inTok?: number; outTok?: number; fail?: boolean } = {}): LlmClient {
+function fakeClient(meter: UsageMeter, opts: { inTok?: number; outTok?: number; fail?: boolean; delayMs?: number } = {}): LlmClient {
   return {
     backend: "claude",
     json: async <T>(req: JsonRequest<T>): Promise<T> => {
+      if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs));
       if (opts.fail) throw new Error("upstream exploded");
-      sharedMeter.add("claude", req.purpose, opts.inTok ?? 1000, opts.outTok ?? 500);
+      meter.add("claude", req.purpose, opts.inTok ?? 1000, opts.outTok ?? 500);
       return { ok: true } as T;
     },
     stream: async function* (req: TextRequest) {
       if (opts.fail) throw new Error("upstream exploded");
       yield "hello ";
-      sharedMeter.add("claude", req.purpose, opts.inTok ?? 1000, opts.outTok ?? 500);
+      meter.add("claude", req.purpose, opts.inTok ?? 1000, opts.outTok ?? 500);
       yield "world";
     },
   };
 }
 
-let sharedMeter: UsageMeter;
+const jsonReq: JsonRequest<{ ok: boolean }> = {
+  purpose: "test",
+  system: "sys",
+  prompt: "hello",
+  schema: Schema,
+  maxTokens: 1000,
+  mock: () => ({ ok: true }),
+};
 
-function setup(innerOpts: Parameters<typeof fakeClient>[0] = {}, capUsd = 1) {
-  sharedMeter = new UsageMeter();
-  const budget = new Budget(capUsd);
-  const client = budgetedClient(fakeClient(innerOpts), sharedMeter, budget, "claude-haiku-5-5");
-  return { budget, client };
-}
-
-describe("budgetedClient", () => {
-  const jsonReq: JsonRequest<{ ok: boolean }> = {
-    purpose: "test",
-    system: "sys",
-    prompt: "hello",
-    schema: Schema,
-    maxTokens: 1000,
-    mock: () => ({ ok: true }),
-  };
-
-  it("settles the reservation at documented usage after a json call", async () => {
-    const { budget, client } = setup({ inTok: 1000, outTok: 500 });
+describe("BudgetGuard", () => {
+  it("settles to documented meter cost after a json call", async () => {
+    const meter = new UsageMeter();
+    const budget = new Budget(1);
+    const client = budgetedClient(fakeClient(meter, { inTok: 1000, outTok: 500 }), meter, budget, "claude-haiku-5-5");
     const out = await client.json(jsonReq);
     expect(out.ok).toBe(true);
-    const actual = 1000 * 0.1e-6 + 500 * 0.5e-6;
-    const worstCase = (8 + 300) * 0.1e-6 + 1000 * 0.5e-6; // "sys" + "hello" = 8 bytes
-    expect(budget.committed).toBeCloseTo(actual);
-    expect(budget.committed).toBeLessThan(worstCase);
-    expect(budget.unresolved).toBe(0);
+    expect(budget.committed).toBeCloseTo(1000 * 0.1e-6 + 500 * 0.5e-6);
+    expect(budget.calls).toBe(0); // guard tracks via meter, not Budget.calls
   });
 
-  it("keeps the full reservation when the call fails", async () => {
-    const { budget, client } = setup({ fail: true });
+  it("keeps the full reservation outstanding when the call fails", async () => {
+    const meter = new UsageMeter();
+    const budget = new Budget(1);
+    const guard = new BudgetGuard(meter, budget, "claude-haiku-5-5");
+    const client = guard.wrap(fakeClient(meter, { fail: true }));
     await expect(client.json(jsonReq)).rejects.toThrow("upstream exploded");
-    expect(budget.unresolved).toBe(1);
-    expect(budget.committed).toBeGreaterThan(0.0005); // reservation stayed
+    expect(guard.unresolved).toBe(1);
+    // Reservation stays: committed = 8 bytes + margin input, plus 1000 output tokens.
+    expect(budget.committed).toBeCloseTo((8 + 300) * 0.1e-6 + 1000 * 0.5e-6);
+  });
+
+  it("attributes concurrent same-purpose calls exactly once", async () => {
+    const meter = new UsageMeter();
+    const budget = new Budget(1);
+    const client = budgetedClient(fakeClient(meter, { inTok: 1000, outTok: 500, delayMs: 20 }), meter, budget, "claude-haiku-5-5");
+    await Promise.all([client.json(jsonReq), client.json(jsonReq), client.json(jsonReq)]);
+    // Three calls' usage, counted once each: no double-settle, no unresolved.
+    expect(budget.committed).toBeCloseTo(3 * (1000 * 0.1e-6 + 500 * 0.5e-6));
   });
 
   it("refuses oversize requests without calling the backend", async () => {
-    const { budget, client } = setup();
-    const big: JsonRequest<{ ok: boolean }> = { ...jsonReq, prompt: "x".repeat(MAX_REQUEST_BYTES + 1) };
-    await expect(client.json(big)).rejects.toThrow(BudgetError);
-    expect(budget.calls).toBe(0);
+    const meter = new UsageMeter();
+    const budget = new Budget(1);
+    const client = budgetedClient(fakeClient(meter), meter, budget, "claude-haiku-5-5");
+    await expect(client.json({ ...jsonReq, prompt: "x".repeat(MAX_REQUEST_BYTES + 1) })).rejects.toThrow(BudgetError);
     expect(budget.committed).toBe(0);
   });
 
   it("blocks calls once the cap is exhausted", async () => {
-    const { budget, client } = setup({}, 0.0001);
+    const meter = new UsageMeter();
+    const budget = new Budget(0.0001);
+    const client = budgetedClient(fakeClient(meter), meter, budget, "claude-haiku-5-5");
     await expect(client.json(jsonReq)).rejects.toThrow(BudgetError);
     expect(budget.committed).toBe(0);
   });
 
   it("settles stream calls after the last chunk", async () => {
-    const { budget, client } = setup({ inTok: 2000, outTok: 300 });
+    const meter = new UsageMeter();
+    const budget = new Budget(1);
+    const client = budgetedClient(fakeClient(meter, { inTok: 2000, outTok: 300 }), meter, budget, "claude-haiku-5-5");
     const req: TextRequest = { purpose: "test.stream", system: "s", prompt: "p", maxTokens: 1000, mock: () => "m" };
     let text = "";
     for await (const chunk of client.stream(req)) text += chunk;
@@ -86,8 +94,9 @@ describe("budgetedClient", () => {
   });
 
   it("keeps the reservation when a stream fails mid-way", async () => {
-    sharedMeter = new UsageMeter();
+    const meter = new UsageMeter();
     const budget = new Budget(1);
+    const guard = new BudgetGuard(meter, budget, "claude-haiku-5-5");
     const failing: LlmClient = {
       backend: "claude",
       json: async <T>(): Promise<T> => ({}) as T,
@@ -96,17 +105,32 @@ describe("budgetedClient", () => {
         throw new Error("stream died");
       },
     };
-    const client = budgetedClient(failing, sharedMeter, budget, "claude-haiku-5-5");
+    const client = guard.wrap(failing);
     const req: TextRequest = { purpose: "test.stream", system: "s", prompt: "p", maxTokens: 1000, mock: () => "m" };
     await expect(async () => {
       for await (const c of client.stream(req)) void c;
     }).rejects.toThrow("stream died");
-    expect(budget.unresolved).toBe(1);
+    expect(guard.unresolved).toBe(1);
     expect(budget.committed).toBeGreaterThan(0);
   });
 
   it("refuses a model with no verified price", () => {
-    sharedMeter = new UsageMeter();
-    expect(() => budgetedClient(fakeClient(), sharedMeter, new Budget(1), "claude-opus-5-5")).toThrow(/no verified price/);
+    expect(() => new BudgetGuard(new UsageMeter(), new Budget(1), "claude-opus-5-5")).toThrow(/no verified price/);
+  });
+
+  it("keeps ledger-restored spend on the books across reconciliation", async () => {
+    const meter = new UsageMeter();
+    const budget = new Budget(5, 3.25); // restored from a prior process
+    const client = budgetedClient(fakeClient(meter, { inTok: 1000, outTok: 0 }), meter, budget, "claude-haiku-5-5");
+    await client.json(jsonReq);
+    expect(budget.committed).toBeCloseTo(3.25 + 1000 * 0.1e-6);
+    expect(budget.remaining).toBeLessThan(5 - 3.25);
+  });
+
+  it("meterCostUsd sums every recorded key", () => {
+    const meter = new UsageMeter();
+    meter.add("claude", "a", 1000, 1000);
+    meter.add("mock", "b", 5, 5);
+    expect(meterCostUsd(meter, { in: 0.1e-6, out: 0.5e-6 })).toBeCloseTo(1005 * 0.1e-6 + 1005 * 0.5e-6);
   });
 });

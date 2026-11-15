@@ -50,6 +50,16 @@ export class Budget {
     return this.cap - this.committed;
   }
 
+  /**
+   * Directly set the committed total. Used by the guard's concurrency-safe
+   * reconciliation (committed = realized meter cost + outstanding reservations);
+   * prefer reserve/settle for single-threaded bookkeeping.
+   */
+  setCommitted(usd: number): void {
+    this.committed = usd;
+    this.onChange?.(this.committed);
+  }
+
   reserve(usd: number): number {
     if (this.committed + usd > this.cap) throw new BudgetError(`budget cap $${this.cap.toFixed(2)} would be exceeded`);
     this.committed += usd;
