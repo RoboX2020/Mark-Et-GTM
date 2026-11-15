@@ -8,7 +8,20 @@ import path from "node:path";
  * - fail closed: a store that cannot be read or written refuses live runs
  *   instead of resetting spend to zero.
  */
+/** A finished run's durable artifacts, kept next to the ledger so hosts with
+ *  wiped disks (free-tier spin-downs) still keep replayable run history. */
+export interface RunArtifacts {
+  log: string; // full run.jsonl contents
+  meta?: string; // run.meta.json: label, showcase flag, status
+}
+
 export interface SpendStore {
+  // Run-artifact persistence is optional: the file backend's "store" IS the
+  // local runs directory (documented as non-durable on ephemeral hosts), so
+  // only durable remote backends implement these.
+  saveRun?(id: string, artifacts: RunArtifacts): Promise<void>;
+  listRunIds?(): Promise<string[]>;
+  loadRun?(id: string): Promise<RunArtifacts | null>;
   /** Total committed USD as of the last durable write. Throws when unreadable. */
   load(): Promise<number>;
   /** Durably record the new committed total. */
@@ -256,6 +269,58 @@ export class GitHubSpendStore implements SpendStore {
       console.error(`ledger settle failed (failing closed): ${(err as Error).message}`);
       throw err;
     }
+  }
+
+  /** Run artifacts live under runs/ in the same private repo. Runs are
+   *  immutable once finished, so a plain create-or-overwrite is safe; writes
+   *  serialize through the same tail as the ledger to stay under API limits. */
+  private async putRunFile(path: string, content: string): Promise<void> {
+    const doPut = async (): Promise<void> => {
+      const existing = await this.api(path);
+      const sha = existing.ok ? ((await existing.json()) as { sha?: string }).sha : undefined;
+      const res = await this.api(path, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: `mark8 run artifact ${path}`,
+          content: Buffer.from(content).toString("base64"),
+          ...(sha ? { sha } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(`run artifact write failed: GitHub ${res.status}`);
+    };
+    this.tail = this.tail.then(doPut).catch((err) => {
+      console.error(`run artifact save failed for ${path}: ${(err as Error).message}`);
+    });
+    return this.tail;
+  }
+
+  async saveRun(id: string, artifacts: RunArtifacts): Promise<void> {
+    await this.putRunFile(`runs/${id}.jsonl`, artifacts.log);
+    if (artifacts.meta) await this.putRunFile(`runs/${id}.meta.json`, artifacts.meta);
+  }
+
+  async listRunIds(): Promise<string[]> {
+    const res = await this.api("runs");
+    if (res.status === 404) return [];
+    if (!res.ok) throw new Error(`run list failed: GitHub ${res.status}`);
+    const entries = (await res.json()) as { name?: string; type?: string }[];
+    return entries
+      .filter((e) => e.type === "file" && e.name?.startsWith("run_") && e.name.endsWith(".jsonl"))
+      .map((e) => e.name!.replace(/\.jsonl$/, ""));
+  }
+
+  async loadRun(id: string): Promise<RunArtifacts | null> {
+    const read = async (p: string): Promise<string | null> => {
+      const res = await this.api(p);
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`run read failed: GitHub ${res.status}`);
+      const body = (await res.json()) as { content?: string };
+      return body.content ? Buffer.from(body.content, "base64").toString("utf8") : null;
+    };
+    const log = await read(`runs/${id}.jsonl`);
+    if (log === null) return null;
+    return { log, meta: (await read(`runs/${id}.meta.json`)) ?? undefined };
   }
 
   healthy(): boolean {

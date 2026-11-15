@@ -7,6 +7,16 @@ import type { EngineConfig } from "@market/engine/config";
 import type { ClientWrap } from "@market/engine/llm/router";
 import { Budget } from "./budget.js";
 import { estimateRunCostUsd } from "./brief.js";
+import type { SpendStore } from "./ledger.js";
+
+/** Sidecar metadata for one run: who may see it and what it is. Privacy fails
+ *  closed - a run without a readable sidecar is treated as PRIVATE. */
+export interface RunMeta {
+  label?: string;
+  showcase?: boolean; // true only for clearly fictional public examples
+  createdAt?: string;
+  status?: RunRec["status"];
+}
 
 export interface RunRec {
   id: string;
@@ -17,6 +27,11 @@ export interface RunRec {
   file: string; // jsonl filename, served under /api/runs/
   status: "running" | "ok" | "error" | "refused";
   error?: string;
+  /** Public replay is opt-in: only clearly fictional showcase runs are listed
+   *  and served to visitors. Real briefs and test runs stay operator-only. */
+  showcase: boolean;
+  /** True once the run's artifacts are confirmed in durable remote storage. */
+  archived: boolean;
 }
 
 /** One manifest entry in the exact shape the portal's run picker already reads. */
@@ -50,28 +65,56 @@ export class RunManager {
       ledgerHealthy?: () => boolean; // false = durable spend store lost: refuse billable runs
       model: string;
       wrapClient?: ClientWrap;
+      runStore?: SpendStore; // durable remote retention for run artifacts (survives disk wipes)
       perRunCapUsd: number;
       maxRunsPerIpPerDay: number;
       maxRunsPerDay: number;
     },
   ) {
     fs.mkdirSync(runsDir, { recursive: true });
-    // Rebuild the manifest from disk: a restart (or host spin-down) must not
-    // make finished runs vanish from the picker.
+    // Rebuild the manifest from disk: covers restarts while the disk survives.
+    // Disk-wipe recovery (free-tier spin-downs) comes from recoverFromStore().
     for (const file of fs.readdirSync(runsDir).filter((f) => f.endsWith(".jsonl"))) {
-      const id = file.replace(/\.jsonl$/, "");
-      if (this.runs.has(id)) continue;
-      try {
-        const first = JSON.parse(fs.readFileSync(path.join(runsDir, file), "utf8").split("\n", 1)[0]) as {
-          event?: { type?: string; label?: string; brief?: { product?: { name?: string } }; mode?: string };
-        };
-        const ev = first.event ?? {};
-        if (ev.type !== "run.started") continue;
-        const stat = fs.statSync(path.join(runsDir, file));
-        // Last line carries run.completed with the true final status.
-        let status: RunRec["status"] = "ok";
+      this.addFromDisk(file);
+    }
+  }
+
+  private metaPath(id: string): string {
+    return path.join(this.runsDir, `${id}.meta.json`);
+  }
+
+  private readMeta(id: string): RunMeta {
+    try {
+      return JSON.parse(fs.readFileSync(this.metaPath(id), "utf8")) as RunMeta;
+    } catch {
+      return {}; // privacy fails closed: unknown = not showcase
+    }
+  }
+
+  private writeMeta(id: string, meta: RunMeta): void {
+    try {
+      fs.writeFileSync(this.metaPath(id), JSON.stringify(meta));
+    } catch (err) {
+      console.error(`[runs] meta write failed for ${id}: ${(err as Error).message}`);
+    }
+  }
+
+  private addFromDisk(file: string): void {
+    const id = file.replace(/\.jsonl$/, "");
+    if (this.runs.has(id)) return;
+    try {
+      const first = JSON.parse(fs.readFileSync(path.join(this.runsDir, file), "utf8").split("\n", 1)[0]) as {
+        event?: { type?: string; label?: string; brief?: { product?: { name?: string } }; mode?: string };
+      };
+      const ev = first.event ?? {};
+      if (ev.type !== "run.started") return;
+      const stat = fs.statSync(path.join(this.runsDir, file));
+      const meta = this.readMeta(id);
+      // Last line carries run.completed with the true final status; the sidecar wins.
+      let status: RunRec["status"] = meta.status ?? "ok";
+      if (!meta.status) {
         try {
-          const fd = fs.openSync(path.join(runsDir, file), "r");
+          const fd = fs.openSync(path.join(this.runsDir, file), "r");
           const tailBuf = Buffer.alloc(Math.min(4096, stat.size));
           fs.readSync(fd, tailBuf, 0, tailBuf.length, Math.max(0, stat.size - tailBuf.length));
           fs.closeSync(fd);
@@ -81,34 +124,119 @@ export class RunManager {
         } catch {
           // keep "ok"
         }
-        this.runs.set(id, {
-          id,
-          label: ev.label ?? ev.brief?.product?.name ?? id,
-          kind: "simulation",
-          mode: ev.mode ?? this.cfg.mode,
-          createdAt: stat.birthtime.toISOString?.() ?? stat.mtime.toISOString(),
-          file,
-          status,
-        });
-      } catch {
-        // Unparseable file: skip it rather than fail the boot.
+      }
+      this.runs.set(id, {
+        id,
+        label: meta.label ?? ev.label ?? ev.brief?.product?.name ?? id,
+        kind: "simulation",
+        mode: ev.mode ?? this.cfg.mode,
+        createdAt: meta.createdAt ?? stat.birthtime.toISOString?.() ?? stat.mtime.toISOString(),
+        file,
+        status,
+        showcase: meta.showcase === true, // private unless explicitly marked
+        archived: false,
+      });
+    } catch {
+      // Unparseable file: skip it rather than fail the boot.
+    }
+  }
+
+  /** Disk-wipe recovery: pull any runs the durable store has that this disk
+   *  lost (Render free spin-downs wipe the filesystem). Also the retention
+   *  backstop's restore path. Safe to call repeatedly. */
+  async recoverFromStore(): Promise<number> {
+    const store = this.opts.runStore;
+    if (!store?.listRunIds || !store.loadRun) return 0;
+    let restored = 0;
+    let ids: string[];
+    try {
+      ids = await store.listRunIds();
+    } catch (err) {
+      console.error(`[runs] remote run list failed (disk manifest stands): ${(err as Error).message}`);
+      return 0;
+    }
+    for (const id of ids) {
+      const file = `${id}.jsonl`;
+      if (this.runs.has(id) && fs.existsSync(path.join(this.runsDir, file))) continue;
+      try {
+        const art = await store.loadRun(id);
+        if (!art) continue;
+        fs.writeFileSync(path.join(this.runsDir, file), art.log);
+        if (art.meta) fs.writeFileSync(this.metaPath(id), art.meta);
+        this.runs.delete(id);
+        this.addFromDisk(file);
+        const rec = this.runs.get(id);
+        if (rec) rec.archived = true;
+        restored++;
+      } catch (err) {
+        console.error(`[runs] restore failed for ${id}: ${(err as Error).message}`);
       }
     }
+    return restored;
+  }
+
+  /** Push a finished run's artifacts to durable remote storage. Best-effort:
+   *  a failed archive keeps the run on disk and is retried on the next boot's
+   *  archive sweep; it never changes the run's visible status. */
+  private async archive(id: string): Promise<void> {
+    const store = this.opts.runStore;
+    if (!store?.saveRun) return;
+    const file = path.join(this.runsDir, `${id}.jsonl`);
+    try {
+      const log = fs.readFileSync(file, "utf8");
+      let meta: string | undefined;
+      try {
+        meta = fs.readFileSync(this.metaPath(id), "utf8");
+      } catch {
+        meta = undefined;
+      }
+      await store.saveRun(id, { log, meta });
+      const rec = this.runs.get(id);
+      if (rec) rec.archived = true;
+    } catch (err) {
+      console.error(`[runs] archive failed for ${id} (retried next boot): ${(err as Error).message}`);
+    }
+  }
+
+  /** Boot-time sweep: archive any finished local runs the store is missing
+   *  (e.g. completed while the store was down). */
+  async archiveSweep(): Promise<number> {
+    const store = this.opts.runStore;
+    if (!store?.saveRun || !store.listRunIds) return 0;
+    let remote: Set<string>;
+    try {
+      remote = new Set(await store.listRunIds());
+    } catch {
+      return 0;
+    }
+    let n = 0;
+    for (const rec of this.runs.values()) {
+      if (rec.status === "running" || remote.has(rec.id)) continue;
+      await this.archive(rec.id);
+      n++;
+    }
+    return n;
   }
 
   private countSince(log: number[], since: number): number {
     return log.filter((t) => t > since).length;
   }
 
-  list(): RunRec[] {
-    return [...this.runs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  list(opts?: { includePrivate?: boolean }): RunRec[] {
+    return [...this.runs.values()]
+      .filter((r) => opts?.includePrivate || r.showcase)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   get(id: string): RunRec | undefined {
     return this.runs.get(id);
   }
 
-  async start(brief: Brief, label: string, ip: string): Promise<RunRec> {
+  getByFile(file: string): RunRec | undefined {
+    return [...this.runs.values()].find((r) => r.file === file);
+  }
+
+  async start(brief: Brief, label: string, ip: string, showcase = false): Promise<RunRec> {
     const now = Date.now();
     const dayAgo = now - DAY_MS;
     if (this.active) throw new RefusedError("a simulation is already running; try again shortly");
@@ -130,8 +258,19 @@ export class RunManager {
 
     const id = `run_${new Date().toISOString().slice(0, 10)}_${crypto.randomBytes(3).toString("hex")}`;
     const file = `${id}.jsonl`;
-    const rec: RunRec = { id, label, kind: "simulation", mode: this.cfg.mode, createdAt: new Date().toISOString(), file, status: "running" };
+    const rec: RunRec = {
+      id,
+      label,
+      kind: "simulation",
+      mode: this.cfg.mode,
+      createdAt: new Date().toISOString(),
+      file,
+      status: "running",
+      showcase,
+      archived: false,
+    };
     this.runs.set(id, rec);
+    this.writeMeta(id, { label, showcase, createdAt: rec.createdAt, status: "running" });
     this.active = true;
     this.ipLog.set(ip, [...(this.ipLog.get(ip) ?? []), now]);
     this.globalLog.push(now);
@@ -152,6 +291,8 @@ export class RunManager {
       })
       .finally(() => {
         this.active = false;
+        this.writeMeta(id, { label, showcase, createdAt: rec.createdAt, status: rec.status });
+        void this.archive(id); // durable retention; failures logged + retried at boot
       });
     return rec;
   }

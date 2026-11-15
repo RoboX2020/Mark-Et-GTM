@@ -1,6 +1,11 @@
+import { useState } from "react";
 import { STAGES } from "@market/core";
 import { useNav, useRun } from "../lib/context";
 import { clock, label } from "../lib/format";
+
+// Small screens get the rail collapsed by default so the report keeps the
+// full viewport; the header bar toggles it open.
+const smallScreen = () => typeof window !== "undefined" && window.matchMedia("(max-width: 1100px)").matches;
 
 const STAGE_SHORT: Record<string, string> = {
   ingest: "Signal",
@@ -24,12 +29,16 @@ export function Rail() {
   const detail = running ? state.stages[running].detail : lastDone ? state.stages[lastDone].detail : "";
   const items = [...state.activity].reverse().slice(0, 160);
   const t0 = state.startedAt ?? 0;
+  const [collapsed, setCollapsed] = useState(smallScreen);
 
   return (
-    <aside className="rail">
+    <aside className={`rail${collapsed ? " collapsed" : ""}`}>
       <div className="rail-head">
         <div className="row between">
-          <span className="eyebrow">Live activity</span>
+          <button className="rail-toggle" onClick={() => setCollapsed((c) => !c)} aria-expanded={!collapsed}>
+            <span className="eyebrow">Live activity</span>
+            <span className="rail-caret">{collapsed ? "▲" : "▼"}</span>
+          </button>
           <span className="status">
             <span className={`dot ${state.status === "running" ? "live" : state.status === "ok" ? "ok" : state.status === "error" ? "err" : ""}`} />
             {state.status === "running" ? (running ? label(running) : "running") : state.status === "idle" ? "idle" : state.status === "ok" ? "complete" : "failed"}

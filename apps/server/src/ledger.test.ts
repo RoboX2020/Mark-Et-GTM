@@ -163,6 +163,42 @@ describe("GitHubSpendStore", () => {
   });
 });
 
+describe("GitHubSpendStore run retention", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("saves, lists and loads run artifacts in the private repo", async () => {
+    // In-memory stand-in for the repo's contents API.
+    const files = new Map<string, string>();
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (!u.includes("/contents/")) return new Response(JSON.stringify({ private: true }), { status: 200 });
+      const path = u.split("/contents/")[1];
+      if (init?.method === "PUT") {
+        files.set(path, Buffer.from(JSON.parse(init.body as string).content, "base64").toString("utf8"));
+        return new Response(JSON.stringify({ content: { sha: "s" } }), { status: 201 });
+      }
+      if (path === "runs") {
+        const names = [...files.keys()].filter((k) => k.startsWith("runs/")).map((k) => ({ name: k.slice(5), type: "file" }));
+        return names.length ? new Response(JSON.stringify(names), { status: 200 }) : new Response("none", { status: 404 });
+      }
+      const v = files.get(path);
+      return v === undefined
+        ? new Response("not found", { status: 404 })
+        : new Response(JSON.stringify({ sha: "s", content: Buffer.from(v).toString("base64") }), { status: 200 });
+    });
+    const store = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
+    await store.load();
+
+    await store.saveRun!("run_2026-01-01_abc123", { log: '{"runId":"run_2026-01-01_abc123"}\n', meta: '{"showcase":false}' });
+    expect(await store.listRunIds!()).toEqual(["run_2026-01-01_abc123"]);
+    const art = await store.loadRun!("run_2026-01-01_abc123");
+    expect(art?.log).toContain("run_2026-01-01_abc123");
+    expect(art?.meta).toContain("showcase");
+    expect(await store.loadRun!("run_missing")).toBeNull();
+    expect(store.healthy()).toBe(true); // artifact failures must not latch the ledger closed
+  });
+});
+
 describe("operator gate (live mode)", () => {
   it("refuses billable runs without the operator token, allows with it until budget check", async () => {
     const runsDir = tmp();

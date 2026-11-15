@@ -14,3 +14,4 @@ apps/portal/dist/
 # Server runtime state: spend ledger and ad-hoc run outputs stay local.
 data/server/
 data/runs/run_*.jsonl
+data/runs/run_*.meta.json

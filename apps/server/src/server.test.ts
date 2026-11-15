@@ -69,7 +69,8 @@ describe("server (mock mode)", () => {
   it("runs a full simulation end to end and serves the event log", async () => {
     const res = await fetch(`${base}/api/runs`, {
       method: "POST",
-      body: JSON.stringify({ name: "TestCo", idea: "A robot that folds laundry", price: 20, population: 40 }),
+      // showcase: true marks it public (an operator act in live mode; open in mock dev).
+      body: JSON.stringify({ name: "TestCo", idea: "A robot that folds laundry", price: 20, population: 40, showcase: true }),
     });
     expect(res.status).toBe(201);
     const { run } = await res.json();
@@ -102,5 +103,60 @@ describe("server (mock mode)", () => {
   it("does not serve paths outside the runs directory", async () => {
     const res = await fetch(`${base}/api/runs/..%2F..%2Fpackage.json`);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("run privacy", () => {
+  // A fresh server with an operator token: private runs must be invisible to
+  // visitors and visible to the operator; showcase runs are public.
+  let privBase: string;
+  let privClose: () => Promise<void>;
+
+  beforeAll(async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mark8-priv-"));
+    const { server } = createServer({
+      port: 0,
+      host: "127.0.0.1",
+      cfg: loadConfig({ mode: "mock" }),
+      runsDir: dir,
+      model: "mock",
+      operatorToken: "test-operator",
+      perRunCapUsd: 1,
+      maxRunsPerIpPerDay: 10,
+      maxRunsPerDay: 50,
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    privBase = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    privClose = () => new Promise((resolve) => server.close(() => resolve()));
+  });
+
+  afterAll(() => privClose());
+
+  it("hides non-showcase runs from visitors, shows them to the operator", async () => {
+    const op = { "x-operator-token": "test-operator" };
+    const mk = async (body: object) => {
+      const res = await fetch(`${privBase}/api/runs`, { method: "POST", headers: op, body: JSON.stringify(body) });
+      expect(res.status).toBe(201);
+      return (await res.json()).run as { id: string; file: string };
+    };
+    const priv = await mk({ idea: "private product test" });
+    const pub = await mk({ idea: "fictional showcase example", showcase: true });
+
+    // Visitor list: only the showcase run.
+    const visitorList = (await (await fetch(`${privBase}/api/runs/index.json`)).json()) as { id: string }[];
+    expect(visitorList.map((r) => r.id)).toContain(pub.id);
+    expect(visitorList.map((r) => r.id)).not.toContain(priv.id);
+
+    // Operator list: both.
+    const opList = (await (await fetch(`${privBase}/api/runs/index.json`, { headers: op })).json()) as { id: string }[];
+    expect(opList.map((r) => r.id)).toEqual(expect.arrayContaining([pub.id, priv.id]));
+
+    // Visitor cannot fetch the private run's log; the operator can.
+    expect((await fetch(`${privBase}/api/runs/${priv.file}`)).status).toBe(404);
+    expect((await fetch(`${privBase}/api/runs/${priv.file}`, { headers: op })).status).toBe(200);
+    expect((await fetch(`${privBase}/api/runs/${pub.file}`)).status).toBe(200);
+
+    // A wrong token is a visitor.
+    expect((await fetch(`${privBase}/api/runs/${priv.file}`, { headers: { "x-operator-token": "nope" } })).status).toBe(404);
   });
 });

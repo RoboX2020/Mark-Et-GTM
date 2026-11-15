@@ -82,6 +82,13 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
+/** Timing-safe operator check. Without a configured token nothing is operator. */
+function isOperator(req: http.IncomingMessage, operatorToken: string | undefined): boolean {
+  const tok = String(req.headers["x-operator-token"] ?? "");
+  const expectTok = operatorToken ?? "";
+  return expectTok.length > 0 && tok.length === expectTok.length && crypto.timingSafeEqual(Buffer.from(tok), Buffer.from(expectTok));
+}
+
 function clientIp(req: http.IncomingMessage): string {
   // No proxy is trusted by default: only the direct peer counts. If the server is
   // later put behind a known reverse proxy, wire TRUST_PROXY=1 and the first
@@ -110,7 +117,7 @@ function serveStatic(res: http.ServerResponse, dist: string, urlPath: string): b
 }
 
 export function createServer(opts: ServerOptions): { server: http.Server; manager: RunManager } {
-  const manager = new RunManager(opts.cfg, opts.runsDir, opts);
+  const manager = new RunManager(opts.cfg, opts.runsDir, { ...opts, runStore: opts.spendStore });
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -139,14 +146,8 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
 
       if (url.pathname === "/api/runs" && req.method === "POST") {
         // Billable runs are operator-only: the public site replays finished runs.
-        if (opts.budget) {
-          const tok = String(req.headers["x-operator-token"] ?? "");
-          const expectTok = opts.operatorToken ?? "";
-          const ok =
-            expectTok.length > 0 &&
-            tok.length === expectTok.length &&
-            crypto.timingSafeEqual(Buffer.from(tok), Buffer.from(expectTok));
-          if (!ok) return send(res, 403, { error: "live runs are operator-only; finished runs are open to everyone" });
+        if (opts.budget && !isOperator(req, opts.operatorToken)) {
+          return send(res, 403, { error: "live runs are operator-only; finished runs are open to everyone" });
         }
         const raw = await readBody(req);
         let parsed: unknown;
@@ -155,18 +156,27 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
         } catch {
           throw new InputError("body must be valid JSON");
         }
+        // A run joins the public showcase only when the operator explicitly marks
+        // it (reserved for clearly fictional examples). Default is private.
+        const showcase = typeof parsed === "object" && parsed !== null && (parsed as { showcase?: unknown }).showcase === true;
         const brief = buildBrief(parsed);
         const label = `${brief.product.name} · ${brief.price.amount > 0 ? `$${brief.price.amount}/mo` : "free"}`;
-        const rec = await manager.start(brief, label, clientIp(req));
+        const rec = await manager.start(brief, label, clientIp(req), showcase);
         return send(res, 201, { run: toManifestEntry(rec) });
       }
 
       if (url.pathname === "/api/runs/index.json" && req.method === "GET") {
-        return send(res, 200, manager.list().map(toManifestEntry));
+        // Visitors see showcase runs only; the operator token unlocks the full list.
+        return send(res, 200, manager.list({ includePrivate: isOperator(req, opts.operatorToken) }).map(toManifestEntry));
       }
 
-      const runFile = url.pathname.match(/^\/api\/runs\/(run_[\w-]+\.jsonl)$/);
+      const runFile = url.pathname.match(/^\/api\/runs\/([\w-]+\.jsonl)$/);
       if (runFile && req.method === "GET") {
+        const rec = manager.getByFile(runFile[1]);
+        // Privacy fails closed: unknown or non-showcase runs need the operator token.
+        if (!rec?.showcase && !isOperator(req, opts.operatorToken)) {
+          return send(res, 404, { error: "run not found" });
+        }
         const file = path.join(opts.runsDir, runFile[1]);
         if (!fs.existsSync(file)) return send(res, 404, { error: "run not found" });
         res.writeHead(200, { "content-type": MIME[".jsonl"] });
@@ -186,6 +196,14 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
       return send(res, 500, { error: "internal error" });
     }
   });
+
+  // Retention boot sequence (durable remote store only; no-ops on the file
+  // backend): restore runs the disk lost, then archive anything finished that
+  // never made it to the store. Failures log and never block boot.
+  void manager
+    .recoverFromStore()
+    .then(() => manager.archiveSweep())
+    .catch((err) => console.error("[runs] boot retention pass failed:", err));
 
   return { server, manager };
 }
