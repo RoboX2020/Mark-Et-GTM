@@ -6,8 +6,8 @@ services:
     name: mark8
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @market/portal build
-    startCommand: pnpm --filter @market/server start
+    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter @market/portal build
+    startCommand: corepack pnpm --filter @market/server start
     healthCheckPath: /api/health
     envVars:
       - key: MARKET_MODE
