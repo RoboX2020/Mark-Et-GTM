@@ -136,11 +136,16 @@ export function NewBrief({ onClose, onStarted }: { onClose: () => void; onStarte
           <label className="field">Synthetic customers<input value={form.population} onChange={set("population")} inputMode="numeric" /></label>
           {error && <p className="subtle" style={{ color: "var(--bad, #c33)", margin: 0 }}>{error}</p>}
           <div className="row wrap">
-            {health && (
+            {health && health.budget?.billableRuns === "operator-only" ? (
+              // Visitors must see the restriction plainly, not a button that 403s.
+              <p className="subtle" style={{ margin: 0 }}>
+                Live runs are operator-only while the runtime budget is being settled. Every finished run below is open.
+              </p>
+            ) : health && !health.budget ? (
               <button className="btn" onClick={runNow} disabled={starting || !form.description.trim()}>
                 {starting ? "Starting…" : "Run simulation"}
               </button>
-            )}
+            ) : null}
             <button className="btn" onClick={download}>Download brief</button>
             <button className="btn" onClick={copyCommand}>{copied ? "Copied" : "Copy engine command"}</button>
           </div>

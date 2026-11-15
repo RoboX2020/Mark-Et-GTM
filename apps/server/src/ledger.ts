@@ -70,16 +70,19 @@ export class FileSpendStore implements SpendStore {
 export class GitHubSpendStore implements SpendStore {
   private failed = false;
   private sha: string | undefined;
+  /** The committed value as of our last confirmed remote write/read; deltas merge on top. */
+  private lastSynced = 0;
   private tail: Promise<void> = Promise.resolve();
 
   constructor(
-    private repo: string, // "owner/repo" - must be PRIVATE
+    private repo: string, // "owner/repo" - verified PRIVATE at load
     private filePath: string, // e.g. "spend.json"
     private token: string,
   ) {}
 
-  private api(path: string, init?: RequestInit): Promise<Response> {
-    return fetch(`https://api.github.com/repos/${this.repo}/contents/${path}`, {
+  private api(path: string, init?: RequestInit, contents = true): Promise<Response> {
+    const url = contents ? `https://api.github.com/repos/${this.repo}/contents/${path}` : `https://api.github.com/repos/${this.repo}`;
+    return fetch(url, {
       ...init,
       headers: {
         authorization: `Bearer ${this.token}`,
@@ -90,29 +93,37 @@ export class GitHubSpendStore implements SpendStore {
     });
   }
 
+  private parse(body: { sha: string; content: string }): number {
+    const n = Number((JSON.parse(Buffer.from(body.content, "base64").toString("utf8")) as { totalCommittedUsd?: unknown }).totalCommittedUsd);
+    if (!Number.isFinite(n) || n < 0) throw new Error("ledger record corrupt in GitHub store - refusing to run live");
+    return n;
+  }
+
   async load(): Promise<number> {
+    // The spend record must never live in a public repo: verify before trusting it.
+    const meta = await this.api("", undefined, false);
+    if (!meta.ok) throw new Error(`ledger repo check failed: GitHub ${meta.status} - refusing to run live`);
+    const { private: isPrivate } = (await meta.json()) as { private?: boolean };
+    if (isPrivate !== true) throw new Error(`ledger repo ${this.repo} is not private - refusing to run live`);
+
     const res = await this.api(this.filePath);
     if (res.status === 404) {
       // Genuine first boot: create the record at zero. A later 404 can only come
       // from someone deleting the ledger in the private repo - an operator act.
       await this.put(0, undefined);
+      this.lastSynced = 0;
       return 0;
     }
     if (!res.ok) throw new Error(`ledger read failed: GitHub ${res.status} - refusing to run live`);
     const body = (await res.json()) as { sha: string; content: string };
     this.sha = body.sha;
-    let n: number;
-    try {
-      n = Number((JSON.parse(Buffer.from(body.content, "base64").toString("utf8")) as { totalCommittedUsd?: unknown }).totalCommittedUsd);
-      if (!Number.isFinite(n) || n < 0) throw new Error("not a number");
-    } catch {
-      throw new Error("ledger record corrupt in GitHub store - refusing to run live");
-    }
+    const n = this.parse(body);
+    this.lastSynced = n;
     return n;
   }
 
-  private async put(committedUsd: number, sha: string | undefined): Promise<void> {
-    const res = await this.api(this.filePath, {
+  private async put(committedUsd: number, sha: string | undefined): Promise<Response> {
+    return this.api(this.filePath, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -121,14 +132,39 @@ export class GitHubSpendStore implements SpendStore {
         ...(sha ? { sha } : {}),
       }),
     });
-    if (!res.ok) throw new Error(`ledger write failed: GitHub ${res.status}`);
-    const body = (await res.json()) as { content?: { sha?: string } };
-    this.sha = body.content?.sha ?? this.sha;
   }
 
-  /** Saves are serialized; a failure latches unhealthy so new billable runs refuse. */
+  /**
+   * Conditional write: the GitHub contents API rejects a stale SHA (409/422),
+   * which is how overlapping/restarted deployments stay safe. On conflict we
+   * re-read and merge our UNSYNCED DELTA on top of the fresh remote value
+   * (spend is monotonic; losing another deployment's spend would under-count),
+   * then retry. Bounded attempts, then latch unhealthy (fail closed).
+   */
+  private async saveOnce(committedUsd: number): Promise<void> {
+    let value = committedUsd;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const res = await this.put(value, this.sha);
+      if (res.ok) {
+        const body = (await res.json()) as { content?: { sha?: string } };
+        this.sha = body.content?.sha ?? this.sha;
+        this.lastSynced = value;
+        return;
+      }
+      if (res.status !== 409 && res.status !== 422) throw new Error(`ledger write failed: GitHub ${res.status}`);
+      const fresh = await this.api(this.filePath);
+      if (!fresh.ok) throw new Error(`ledger re-read failed: GitHub ${fresh.status}`);
+      const body = (await fresh.json()) as { sha: string; content: string };
+      this.sha = body.sha;
+      const remote = this.parse(body);
+      value = Math.max(remote, remote + (committedUsd - this.lastSynced));
+    }
+    throw new Error("ledger write conflicted 3 times - failing closed");
+  }
+
+  /** Saves are serialized per process; cross-process safety is the conditional write above. */
   async save(committedUsd: number): Promise<void> {
-    this.tail = this.tail.then(() => this.put(committedUsd, this.sha)).catch((err) => {
+    this.tail = this.tail.then(() => this.saveOnce(committedUsd)).catch((err) => {
       this.failed = true;
       console.error(`ledger save failed (failing closed): ${(err as Error).message}`);
     });

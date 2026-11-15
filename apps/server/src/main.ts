@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -139,9 +140,13 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
       if (url.pathname === "/api/runs" && req.method === "POST") {
         // Billable runs are operator-only: the public site replays finished runs.
         if (opts.budget) {
-          const tok = req.headers["x-operator-token"];
-          if (!opts.operatorToken || tok !== opts.operatorToken)
-            return send(res, 403, { error: "live runs are operator-only; finished runs are open to everyone" });
+          const tok = String(req.headers["x-operator-token"] ?? "");
+          const expectTok = opts.operatorToken ?? "";
+          const ok =
+            expectTok.length > 0 &&
+            tok.length === expectTok.length &&
+            crypto.timingSafeEqual(Buffer.from(tok), Buffer.from(expectTok));
+          if (!ok) return send(res, 403, { error: "live runs are operator-only; finished runs are open to everyone" });
         }
         const raw = await readBody(req);
         let parsed: unknown;

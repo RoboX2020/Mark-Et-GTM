@@ -18,7 +18,7 @@ export interface ServerHealth {
   mode: string;
   model: string;
   activeRun: string | null;
-  budget: { capUsd: number; committedUsd: number; remainingUsd: number; calls: number; unresolved: number } | null;
+  budget: { capUsd: number; committedUsd: number; remainingUsd: number; calls: number; unresolved: number; billableRuns?: string } | null;
   labeling: string;
 }
 
