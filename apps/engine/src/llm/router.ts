@@ -64,12 +64,18 @@ export class LlmRouter {
     if (!client) return { value: await this.mock.json(req), served: "mock" };
     let lastErr: Error | undefined;
     for (let attempt = 1; attempt <= LIVE_RETRY_ATTEMPTS; attempt++) {
+      // Corrective retry: after a failure, tell the model what validation
+      // rejected so the next attempt fixes it instead of re-sampling blindly.
+      const attemptReq =
+        attempt === 1
+          ? req
+          : { ...req, prompt: `${req.prompt}\n\nYour previous reply failed validation: ${lastErr?.message.slice(0, 400)}. Reply again, valid only.` };
       try {
-        return { value: await client.json(req), served: backend };
+        return { value: await client.json(attemptReq), served: backend };
       } catch (err) {
         lastErr = err as Error;
         this.bus.log(
-          `${backend} attempt ${attempt}/${LIVE_RETRY_ATTEMPTS} failed on ${req.purpose} (${lastErr.message.slice(0, 160)})${attempt < LIVE_RETRY_ATTEMPTS ? " - retrying" : ""}`,
+          `${backend} attempt ${attempt}/${LIVE_RETRY_ATTEMPTS} failed on ${req.purpose} (${lastErr.message.slice(0, 160)})${attempt < LIVE_RETRY_ATTEMPTS ? " - retrying with the error fed back" : ""}`,
           "warn",
         );
       }

@@ -21,7 +21,15 @@ const DecisionSchema = z.object({
   decisions: z.array(
     z.object({
       agentId: z.string(),
-      state: z.enum(["aware", "considering", "adopted", "rejected"]),
+      // Models answer in the vocabulary the prompt uses ("unaware", "thinking"),
+      // not just the four machine states. Normalize honest synonyms; anything
+      // else still fails validation. "unaware" is legitimate (the person
+      // stayed unaware); resolve() treats it as the minimum aware transition
+      // because the agent was exposed this round.
+      state: z.preprocess(
+        (v) => (typeof v === "string" ? ({ thinking: "considering" })[v] ?? v : v),
+        z.enum(["unaware", "aware", "considering", "adopted", "rejected"]),
+      ),
       intent: z.number().describe("0-1 probability this person buys/signs up this round"),
       sentiment: z.number().describe("-1 to 1"),
       wtp: z.number().describe("What they'd actually pay, in the product's currency and billing period"),
@@ -302,6 +310,10 @@ export function mockDecision(ctx: RunContext, p: Persona, exp: Exposure, prev: A
   const name = ctx.brief.product.name;
   const cur = ctx.brief.price.currency === "USD" ? "$" : `${ctx.brief.price.currency} `;
   const lines: Record<DecisionOut["state"], string[]> = {
+    unaware: [
+      `Haven't heard of ${name}.`,
+      `Don't know anything about ${name} yet.`,
+    ],
     adopted: [
       `Signed up for ${name}. It does the thing ${comp} never quite did.`,
       `Okay I caved and tried ${name}. Worth it so far.`,
