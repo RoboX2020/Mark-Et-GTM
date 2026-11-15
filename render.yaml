@@ -1,0 +1,34 @@
+# Mark8 public deployment: one free web service.
+# Secrets (sync: false) are entered in the Render dashboard at blueprint
+# apply time: ANTHROPIC_API_KEY, MARK8_OPERATOR_TOKEN, MARK8_LEDGER_TOKEN.
+services:
+  - type: web
+    name: mark8
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @market/portal build
+    startCommand: pnpm --filter @market/server start
+    healthCheckPath: /api/health
+    envVars:
+      - key: MARKET_MODE
+        value: live
+      - key: MARK8_MODEL
+        value: claude-haiku-5-5
+      # Lifetime app-side cap (not per month): the durable ledger counts
+      # cumulative committed spend, so this can never exceed the approved $5 total.
+      - key: MARK8_BUDGET_USD
+        value: "5"
+      - key: MARK8_PER_RUN_CAP_USD
+        value: "1"
+      - key: MARK8_LEDGER_BACKEND
+        value: github
+      - key: MARK8_LEDGER_REPO
+        value: RoboX2020/mark8-ledger
+      - key: MARK8_LEDGER_PATH
+        value: spend.json
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MARK8_OPERATOR_TOKEN
+        sync: false
+      - key: MARK8_LEDGER_TOKEN
+        sync: false
