@@ -56,6 +56,44 @@ export class RunManager {
     },
   ) {
     fs.mkdirSync(runsDir, { recursive: true });
+    // Rebuild the manifest from disk: a restart (or host spin-down) must not
+    // make finished runs vanish from the picker.
+    for (const file of fs.readdirSync(runsDir).filter((f) => f.endsWith(".jsonl"))) {
+      const id = file.replace(/\.jsonl$/, "");
+      if (this.runs.has(id)) continue;
+      try {
+        const first = JSON.parse(fs.readFileSync(path.join(runsDir, file), "utf8").split("\n", 1)[0]) as {
+          event?: { type?: string; label?: string; brief?: { product?: { name?: string } }; mode?: string };
+        };
+        const ev = first.event ?? {};
+        if (ev.type !== "run.started") continue;
+        const stat = fs.statSync(path.join(runsDir, file));
+        // Last line carries run.completed with the true final status.
+        let status: RunRec["status"] = "ok";
+        try {
+          const fd = fs.openSync(path.join(runsDir, file), "r");
+          const tailBuf = Buffer.alloc(Math.min(4096, stat.size));
+          fs.readSync(fd, tailBuf, 0, tailBuf.length, Math.max(0, stat.size - tailBuf.length));
+          fs.closeSync(fd);
+          const lastLine = tailBuf.toString("utf8").trim().split("\n").filter(Boolean).pop() ?? "";
+          const last = JSON.parse(lastLine) as { event?: { type?: string; status?: string } };
+          if (last.event?.type === "run.completed" && last.event.status === "error") status = "error";
+        } catch {
+          // keep "ok"
+        }
+        this.runs.set(id, {
+          id,
+          label: ev.label ?? ev.brief?.product?.name ?? id,
+          kind: "simulation",
+          mode: ev.mode ?? this.cfg.mode,
+          createdAt: stat.birthtime.toISOString?.() ?? stat.mtime.toISOString(),
+          file,
+          status,
+        });
+      } catch {
+        // Unparseable file: skip it rather than fail the boot.
+      }
+    }
   }
 
   private countSince(log: number[], since: number): number {

@@ -116,7 +116,7 @@ export function NewBrief({ onClose, onStarted }: { onClose: () => void; onStarte
           <p className="subtle" style={{ marginTop: 0 }}>
             Runs now on the server ({health.mode === "live" ? `live ${health.model} agents` : "demo agents - no model calls"}). A population of AI-generated
             synthetic customers reacts and sits for interviews. <strong>Results are simulated - not real customer validation.</strong>
-            {health.budget ? ` Test budget remaining: $${health.budget.remainingUsd.toFixed(2)}.` : ""}
+            {health.budget && health.budget.billableRuns !== "operator-only" ? ` Test budget remaining: $${health.budget.remainingUsd.toFixed(2)}.` : ""}
           </p>
         ) : (
           <p className="subtle" style={{ marginTop: 0 }}>
