@@ -6,7 +6,7 @@ import { loadConfig, REPO_ROOT, type EngineConfig } from "@market/engine/config"
 import type { ClientWrap } from "@market/engine/llm/router";
 import { Budget } from "./budget.js";
 import { buildBrief, InputError } from "./brief.js";
-import { budgetedClient } from "./guard.js";
+import { BudgetGuard } from "./guard.js";
 import { SpendLedger } from "./ledger.js";
 import { RefusedError, RunManager, toManifestEntry } from "./runs.js";
 
@@ -22,6 +22,8 @@ export interface ServerOptions {
   budget?: Budget;
   model: string;
   wrapClient?: ClientWrap;
+  /** Live count of calls whose reservations are still outstanding (current run's guard). */
+  unresolvedCount?: () => number;
   perRunCapUsd: number;
   maxRunsPerIpPerDay: number;
   maxRunsPerDay: number;
@@ -117,7 +119,7 @@ export function createServer(opts: ServerOptions): { server: http.Server; manage
                 committedUsd: Number(opts.budget.committed.toFixed(4)),
                 remainingUsd: Number(opts.budget.remaining.toFixed(4)),
                 calls: opts.budget.calls,
-                unresolved: opts.budget.unresolved,
+                unresolved: opts.unresolvedCount ? opts.unresolvedCount() : 0,
               }
             : null,
           labeling: "All results are simulated by AI-generated synthetic users - not real customer validation.",
@@ -174,6 +176,7 @@ export function optionsFromEnv(): ServerOptions {
   const model = env("MARK8_MODEL", "claude-haiku-5-5");
   let budget: Budget | undefined;
   let wrapClient: ClientWrap | undefined;
+  let unresolvedCount: (() => number) | undefined;
 
   if (mode === "live") {
     const key = env("ANTHROPIC_API_KEY") || (env("CLAUDE_KEY_FILE") ? fs.readFileSync(env("CLAUDE_KEY_FILE"), "utf8").trim() : "");
@@ -189,7 +192,13 @@ export function optionsFromEnv(): ServerOptions {
     const ledger = new SpendLedger(env("MARK8_SPEND_LEDGER", path.join(REPO_ROOT, "data", "server", "spend.json")));
     budget = new Budget(capUsd, ledger.load());
     budget.onChange = (committed) => ledger.save(committed);
-    wrapClient = (client, usage) => budgetedClient(client, usage, budget!, model);
+    let guard: BudgetGuard | undefined;
+    wrapClient = (client, usage) => {
+      // One guard per run (each run has its own usage meter); the budget is shared.
+      guard = new BudgetGuard(usage, budget!, model);
+      return guard.wrap(client);
+    };
+    unresolvedCount = () => guard?.unresolved ?? 0;
   }
 
   return {
@@ -197,10 +206,12 @@ export function optionsFromEnv(): ServerOptions {
     host: env("HOST", "127.0.0.1"),
     cfg,
     runsDir: env("MARK8_RUNS_DIR", path.join(REPO_ROOT, "data", "runs")),
-    portalDist: env("PORTAL_DIST") || undefined,
+    // The portal ships beside the server in this repo; override with PORTAL_DIST.
+    portalDist: env("PORTAL_DIST", path.join(REPO_ROOT, "apps", "portal", "dist")),
     budget,
     model,
     wrapClient,
+    unresolvedCount,
     perRunCapUsd: Number(env("MARK8_PER_RUN_CAP_USD", "1")),
     maxRunsPerIpPerDay: Number(env("MARK8_MAX_RUNS_PER_IP_PER_DAY", "3")),
     maxRunsPerDay: Number(env("MARK8_MAX_RUNS_PER_DAY", "20")),
