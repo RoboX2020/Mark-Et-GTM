@@ -87,6 +87,67 @@ describe("GitHubSpendStore", () => {
     expect(written).toEqual([1.5, 5.5]); // first (conflicted) attempt, then merged retry
   });
 
+  /** A fake remote with real compare-and-swap semantics: PUT carries the SHA the
+   *  writer read; a stale SHA is a 409, exactly like the GitHub contents API. */
+  function fakeRemote(initial?: number) {
+    const state = { sha: initial === undefined ? 0 : 1, value: initial ?? 0 };
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (!String(url).includes("/contents/")) return new Response(JSON.stringify({ private: true }), { status: 200 });
+      if (init?.method === "PUT") {
+        const body = JSON.parse(init.body as string) as { content: string; sha?: string };
+        if (state.sha === 0 || body.sha !== String(state.sha)) {
+          if (!(state.sha === 0 && !body.sha)) return new Response("conflict", { status: 409 });
+        }
+        state.value = Number((JSON.parse(Buffer.from(body.content, "base64").toString("utf8")) as { totalCommittedUsd: number }).totalCommittedUsd);
+        state.sha++;
+        return new Response(JSON.stringify({ content: { sha: String(state.sha) } }), { status: 201 });
+      }
+      if (state.sha === 0) return new Response("not found", { status: 404 });
+      return new Response(
+        JSON.stringify({ sha: String(state.sha), content: Buffer.from(JSON.stringify({ totalCommittedUsd: state.value })).toString("base64") }),
+        { status: 200 },
+      );
+    });
+    return state;
+  }
+
+  it("rejects the losing reservation when two instances compete near the cap", async () => {
+    const remote = fakeRemote(0);
+    const a = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
+    const b = new GitHubSpendStore("owner/private-repo", "spend.json", "tok"); // a second deployment
+    await a.load();
+    await b.load();
+    expect(await a.tryAdd(0.7, 1)).toBe(true); // A reserves 0.70
+    expect(await b.tryAdd(0.7, 1)).toBe(false); // B sees A's reservation: 0.7+0.7 > 1
+    expect(await b.tryAdd(0.3, 1)).toBe(true); // B can still take what actually fits
+    expect(remote.value).toBeCloseTo(1.0);
+    // Neither instance ever exceeded the shared cap, and both writes survived.
+  });
+
+  it("a restarted instance finds unresolved reservations still booked against the cap", async () => {
+    const remote = fakeRemote(0);
+    const first = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
+    await first.load();
+    expect(await first.tryAdd(0.8, 1)).toBe(true); // reserved, then the process dies unsettled
+    const restarted = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
+    expect(await restarted.load()).toBeCloseTo(0.8); // reservation survived the restart
+    expect(await restarted.tryAdd(0.3, 1)).toBe(false); // 0.8 + 0.3 > cap: refused
+    expect(await restarted.tryAdd(0.2, 1)).toBe(true); // exactly to the cap: allowed
+    expect(remote.value).toBeCloseTo(1.0);
+  });
+
+  it("settling down releases the unused part of a reservation for other instances", async () => {
+    const remote = fakeRemote(0);
+    const a = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
+    const b = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
+    await a.load();
+    await b.load();
+    expect(await a.tryAdd(0.5, 1)).toBe(true);
+    await a.add(-0.4); // documented cost was only 0.10
+    expect(remote.value).toBeCloseTo(0.1);
+    expect(await b.tryAdd(0.85, 1)).toBe(true); // released budget is usable again
+  });
+
   it("latches unhealthy when a save fails (fail closed)", async () => {
     stubGitHub((init) => {
       if (init?.method === "PUT") return new Response("boom", { status: 500 });

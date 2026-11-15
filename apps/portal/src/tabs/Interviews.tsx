@@ -26,7 +26,7 @@ export function Interviews() {
         <div>
           <h2>Interviews</h2>
           <div className="muted" style={{ fontSize: 13 }}>
-            {ivs.length} agents interviewed · {recommend}/{done.length} would recommend · real anchor interviews: {state.anchors.filter((a) => !a.synthetic).length}
+            {ivs.length} of {state.personas.size} synthetic agents interviewed (depth sample) · {recommend}/{done.length} would recommend · real anchor interviews: {state.anchors.filter((a) => !a.synthetic).length}
           </div>
         </div>
       </div>

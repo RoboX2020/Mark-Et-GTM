@@ -13,6 +13,15 @@ export interface SpendStore {
   load(): Promise<number>;
   /** Durably record the new committed total. */
   save(committedUsd: number): Promise<void>;
+  /**
+   * Atomic check-and-add: add `amount` to shared committed only if the result
+   * stays within `cap`; returns false when the reservation loses (cap would
+   * break) or the store is unhealthy. This is the cross-instance gate: two
+   * overlapping deployments can never both reserve the same dollars.
+   */
+  tryAdd(amount: number, cap: number): Promise<boolean>;
+  /** Atomic signed add (settling down releases the unused part of a reservation). */
+  add(delta: number): Promise<void>;
   /** False after any save failure: the run manager must refuse new billable runs. */
   healthy(): boolean;
 }
@@ -53,6 +62,35 @@ export class FileSpendStore implements SpendStore {
       this.failed = true;
       throw err;
     }
+  }
+
+  // Single-process store: serialize read-modify-write through one promise chain.
+  private tail: Promise<unknown> = Promise.resolve();
+
+  private mutate<T>(fn: (current: number) => { next: number; out: T }): Promise<T> {
+    const p = this.tail.then(async () => {
+      const current = await this.load();
+      const { next, out } = fn(current);
+      await this.save(next);
+      return out;
+    });
+    this.tail = p.catch(() => {}); // a failed mutation latches via save(); keep the chain alive
+    return p;
+  }
+
+  async tryAdd(amount: number, cap: number): Promise<boolean> {
+    if (!this.healthy()) return false;
+    try {
+      return await this.mutate((current) =>
+        current + amount > cap ? { next: current, out: false } : { next: current + amount, out: true },
+      );
+    } catch {
+      return false; // fail closed
+    }
+  }
+
+  async add(delta: number): Promise<void> {
+    await this.mutate((current) => ({ next: Math.max(0, current + delta), out: undefined }));
   }
 
   healthy(): boolean {
@@ -169,6 +207,55 @@ export class GitHubSpendStore implements SpendStore {
       console.error(`ledger save failed (failing closed): ${(err as Error).message}`);
     });
     return this.tail;
+  }
+
+  /** One conditional read-modify-write round trip; retries on SHA conflict. */
+  private async mutate<T>(fn: (current: number) => { next: number; out: T; write: boolean }): Promise<T> {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const res = await this.api(this.filePath);
+      if (res.status === 404) await this.put(0, undefined); // first boot initializes
+      else if (!res.ok) throw new Error(`ledger read failed: GitHub ${res.status}`);
+      const body = res.status === 404 ? undefined : ((await res.json()) as { sha: string; content: string });
+      if (body) this.sha = body.sha;
+      const current = body ? this.parse(body) : 0;
+      const { next, out, write } = fn(current);
+      if (!write) return out;
+      const put = await this.put(next, this.sha);
+      if (put.ok) {
+        const pb = (await put.json()) as { content?: { sha?: string } };
+        this.sha = pb.content?.sha ?? this.sha;
+        this.lastSynced = next;
+        return out;
+      }
+      if (put.status !== 409 && put.status !== 422) throw new Error(`ledger write failed: GitHub ${put.status}`);
+      // conflict: another instance wrote; loop re-reads and re-decides
+    }
+    throw new Error("ledger conflicted 3 times - failing closed");
+  }
+
+  async tryAdd(amount: number, cap: number): Promise<boolean> {
+    if (!this.healthy()) return false;
+    try {
+      return await this.mutate((current) =>
+        current + amount > cap
+          ? { next: current, out: false, write: false }
+          : { next: current + amount, out: true, write: true },
+      );
+    } catch (err) {
+      this.failed = true;
+      console.error(`ledger reservation failed (failing closed): ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  async add(delta: number): Promise<void> {
+    try {
+      await this.mutate((current) => ({ next: Math.max(0, current + delta), out: undefined, write: true }));
+    } catch (err) {
+      this.failed = true;
+      console.error(`ledger settle failed (failing closed): ${(err as Error).message}`);
+      throw err;
+    }
   }
 
   healthy(): boolean {

@@ -222,9 +222,8 @@ export async function optionsFromEnv(): Promise<ServerOptions> {
     spendStore = ledger.store;
     ledgerBackend = ledger.backend;
     budget = new Budget(capUsd, ledger.restored);
-    budget.onChange = (committed) => {
-      void ledger.store.save(committed).catch(() => {}); // backends latch their own failure
-    };
+    // The store is written by the guard's reservation/settle deltas (atomic,
+    // cross-instance) - never by absolute saves from here.
     ledgerHealthy = () => ledger.store.healthy();
     // Billable runs are operator-only until public runtime authority is settled:
     // without a token there is no way to prove the caller is the operator, so
@@ -233,8 +232,8 @@ export async function optionsFromEnv(): Promise<ServerOptions> {
     if (!operatorToken) throw new Error("live mode needs MARK8_OPERATOR_TOKEN (billable runs are operator-only)");
     let guard: BudgetGuard | undefined;
     wrapClient = (client, usage) => {
-      // One guard per run (each run has its own usage meter); the budget is shared.
-      guard = new BudgetGuard(usage, budget!, model);
+      // One guard per run (each run has its own usage meter); budget and store are shared.
+      guard = new BudgetGuard(usage, budget!, model, ledger.store);
       return guard.wrap(client);
     };
     unresolvedCount = () => guard?.unresolved ?? 0;

@@ -19,7 +19,7 @@ export function Report() {
         Simulated output from AI-generated synthetic users - not real customer validation, not a sales forecast.
       </p>
       <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-        Data up to {state.cutoff?.slice(0, 10)} · {state.personas.size} agents · {state.evidence.length} public posts · {state.signals.length} market signals
+        {state.personas.size} synthetic agents · {state.evidence.length} evidence posts ({state.evidence.filter((e) => e.synthetic).length} built-in fixtures, not researched company data) · {state.signals.length} simulated market signals · brief cutoff {state.cutoff?.slice(0, 10)}
       </div>
       {sections.map((s) => (
         <section key={s.id}>
