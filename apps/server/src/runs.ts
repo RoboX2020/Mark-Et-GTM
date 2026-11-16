@@ -110,20 +110,20 @@ export class RunManager {
       if (ev.type !== "run.started") return;
       const stat = fs.statSync(path.join(this.runsDir, file));
       const meta = this.readMeta(id);
-      // Last line carries run.completed with the true final status; the sidecar wins.
+      // The terminal event is the truth; the sidecar is only a fallback. (A
+      // pipeline that resolved after a failed run once wrote status ok into the
+      // sidecar, and the manifest repeated it.)
       let status: RunRec["status"] = meta.status ?? "ok";
-      if (!meta.status) {
-        try {
-          const fd = fs.openSync(path.join(this.runsDir, file), "r");
-          const tailBuf = Buffer.alloc(Math.min(4096, stat.size));
-          fs.readSync(fd, tailBuf, 0, tailBuf.length, Math.max(0, stat.size - tailBuf.length));
-          fs.closeSync(fd);
-          const lastLine = tailBuf.toString("utf8").trim().split("\n").filter(Boolean).pop() ?? "";
-          const last = JSON.parse(lastLine) as { event?: { type?: string; status?: string } };
-          if (last.event?.type === "run.completed" && last.event.status === "error") status = "error";
-        } catch {
-          // keep "ok"
-        }
+      try {
+        const fd = fs.openSync(path.join(this.runsDir, file), "r");
+        const tailBuf = Buffer.alloc(Math.min(4096, stat.size));
+        fs.readSync(fd, tailBuf, 0, tailBuf.length, Math.max(0, stat.size - tailBuf.length));
+        fs.closeSync(fd);
+        const lastLine = tailBuf.toString("utf8").trim().split("\n").filter(Boolean).pop() ?? "";
+        const last = JSON.parse(lastLine) as { event?: { type?: string; status?: string } };
+        if (last.event?.type === "run.completed") status = last.event.status === "error" ? "error" : "ok";
+      } catch {
+        // no readable terminal event: keep the sidecar's value
       }
       this.runs.set(id, {
         id,
@@ -236,6 +236,39 @@ export class RunManager {
     return [...this.runs.values()].find((r) => r.file === file);
   }
 
+  /**
+   * Terminal truth for a finished run, read from the run log itself: the
+   * run.completed event must say ok AND the run must contain the artifacts a
+   * completed run produces (interviews and a finished report). Anything else
+   * is an error, however the pipeline's promise settled.
+   */
+  private terminalVerdict(file: string): { ok: boolean; error?: string } {
+    let completed: { status?: string } | undefined;
+    let interviews = 0;
+    let reportDone = false;
+    try {
+      for (const line of fs.readFileSync(path.join(this.runsDir, file), "utf8").split("\n")) {
+        if (!line.trim()) continue;
+        let ev: { type?: string; status?: string; stage?: string } | undefined;
+        try {
+          ev = (JSON.parse(line) as { event?: typeof ev }).event;
+        } catch {
+          continue; // a torn final line must not hide the events before it
+        }
+        if (ev?.type === "run.completed") completed = ev;
+        else if (ev?.type === "interview.completed") interviews++;
+        else if (ev?.type === "stage" && ev.stage === "report" && ev.status === "done") reportDone = true;
+      }
+    } catch (err) {
+      return { ok: false, error: `run log unreadable: ${(err as Error).message}` };
+    }
+    if (!completed) return { ok: false, error: "run log has no terminal run.completed event" };
+    if (completed.status !== "ok") return { ok: false, error: "terminal event reports a failed run" };
+    if (interviews === 0 || !reportDone)
+      return { ok: false, error: `completed run is missing required artifacts (interviews=${interviews}, reportDone=${reportDone})` };
+    return { ok: true };
+  }
+
   async start(brief: Brief, label: string, ip: string, showcase = false): Promise<RunRec> {
     const now = Date.now();
     const dayAgo = now - DAY_MS;
@@ -283,7 +316,12 @@ export class RunManager {
       wrapClient: this.opts.wrapClient,
     })
       .then(() => {
-        rec.status = "ok";
+        // A resolved promise is not proof of success: require the terminal
+        // event AND the artifacts a completed run must contain (regression: a
+        // run whose interviews all failed was once published as status ok).
+        const verdict = this.terminalVerdict(file);
+        rec.status = verdict.ok ? "ok" : "error";
+        if (!verdict.ok) rec.error = verdict.error;
       })
       .catch((err) => {
         rec.status = "error";
