@@ -213,13 +213,31 @@ export class GitHubSpendStore implements SpendStore {
     throw new Error("ledger write conflicted 3 times - failing closed");
   }
 
+  /**
+   * Every mutation funnels through one per-process queue. The engine's swarm
+   * finishes many calls concurrently; unqueued conditional writes raced the
+   * shared SHA, exhausted the conflict retries and latched the store unhealthy
+   * mid-run - after which every reservation was refused. Cross-PROCESS safety
+   * stays with the conditional write/retry above; this queue removes
+   * self-conflicts, which the retry loop was never meant to absorb.
+   */
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const p = this.tail.then(fn);
+    this.tail = p.then(
+      () => undefined,
+      () => undefined, // a failed op latches via its own catch; the chain must survive
+    );
+    return p;
+  }
+
   /** Saves are serialized per process; cross-process safety is the conditional write above. */
   async save(committedUsd: number): Promise<void> {
-    this.tail = this.tail.then(() => this.saveOnce(committedUsd)).catch((err) => {
-      this.failed = true;
-      console.error(`ledger save failed (failing closed): ${(err as Error).message}`);
-    });
-    return this.tail;
+    await this.enqueue(() =>
+      this.saveOnce(committedUsd).catch((err) => {
+        this.failed = true;
+        console.error(`ledger save failed (failing closed): ${(err as Error).message}`);
+      }),
+    );
   }
 
   /** One conditional read-modify-write round trip; retries on SHA conflict. */
@@ -249,10 +267,12 @@ export class GitHubSpendStore implements SpendStore {
   async tryAdd(amount: number, cap: number): Promise<boolean> {
     if (!this.healthy()) return false;
     try {
-      return await this.mutate((current) =>
-        current + amount > cap
-          ? { next: current, out: false, write: false }
-          : { next: current + amount, out: true, write: true },
+      return await this.enqueue(() =>
+        this.mutate((current) =>
+          current + amount > cap
+            ? { next: current, out: false, write: false }
+            : { next: current + amount, out: true, write: true },
+        ),
       );
     } catch (err) {
       this.failed = true;
@@ -263,7 +283,7 @@ export class GitHubSpendStore implements SpendStore {
 
   async add(delta: number): Promise<void> {
     try {
-      await this.mutate((current) => ({ next: Math.max(0, current + delta), out: undefined, write: true }));
+      await this.enqueue(() => this.mutate((current) => ({ next: Math.max(0, current + delta), out: undefined, write: true })));
     } catch (err) {
       this.failed = true;
       console.error(`ledger settle failed (failing closed): ${(err as Error).message}`);
@@ -289,10 +309,11 @@ export class GitHubSpendStore implements SpendStore {
       });
       if (!res.ok) throw new Error(`run artifact write failed: GitHub ${res.status}`);
     };
-    this.tail = this.tail.then(doPut).catch((err) => {
-      console.error(`run artifact save failed for ${path}: ${(err as Error).message}`);
-    });
-    return this.tail;
+    await this.enqueue(() =>
+      doPut().catch((err) => {
+        console.error(`run artifact save failed for ${path}: ${(err as Error).message}`);
+      }),
+    );
   }
 
   async saveRun(id: string, artifacts: RunArtifacts): Promise<void> {
