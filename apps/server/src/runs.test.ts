@@ -87,9 +87,13 @@ describe("RunManager terminal status truth", () => {
   it("manifest rebuilt from disk trusts the terminal event over the sidecar", async () => {
     // A sidecar that says ok over a failed run's log must not survive a restart.
     const id = "run_2026-11-16_d16ade";
+    // A concurrent sibling's log line AFTER the terminal event (the real
+    // d16ade file ends exactly like this) must not hide it.
     fs.writeFileSync(
       path.join(runsDir, `${id}.jsonl`),
-      [started, { event: { type: "run.completed", status: "error", usage: {} } }].map((l) => JSON.stringify(l)).join("\n") + "\n",
+      [started, { event: { type: "run.completed", status: "error", usage: {} } }, { event: { type: "log", level: "warn", message: "late sibling" } }]
+        .map((l) => JSON.stringify(l))
+        .join("\n") + "\n",
     );
     fs.writeFileSync(path.join(runsDir, `${id}.meta.json`), JSON.stringify({ label: "t", createdAt: "2026-11-16T01:18:00Z", status: "ok" }));
     const rebuilt = new RunManager(loadConfig({ mode: "mock" }), runsDir, {
