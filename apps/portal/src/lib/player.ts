@@ -33,10 +33,30 @@ export async function fetchHealth(): Promise<ServerHealth | null> {
   }
 }
 
+// Operator sign-in: the token the owner pastes once lives only in this browser tab's
+// sessionStorage (a bearer secret, so it dies with the tab rather than persisting) and
+// rides as the x-operator-token header. It never leaves the device except to the Mark8
+// server itself, and Sign out wipes it.
+const OP_KEY = "mark8.operatorToken";
+
+export function getOperatorToken(): string {
+  return sessionStorage.getItem(OP_KEY) ?? "";
+}
+
+export function setOperatorToken(token: string): void {
+  if (token) sessionStorage.setItem(OP_KEY, token);
+  else sessionStorage.removeItem(OP_KEY);
+}
+
+function operatorHeaders(): Record<string, string> {
+  const tok = getOperatorToken();
+  return tok ? { "x-operator-token": tok } : {};
+}
+
 /** Null means no Mark8 server is reachable. */
 export async function fetchServerRuns(): Promise<RunEntry[] | null> {
   try {
-    const res = await fetch("/api/runs/index.json", { cache: "no-store" });
+    const res = await fetch("/api/runs/index.json", { cache: "no-store", headers: operatorHeaders() });
     if (!res.ok) return null;
     return ((await res.json()) as RunEntry[]).map((r) => ({ ...r, server: true }));
   } catch {
@@ -222,7 +242,7 @@ export async function fetchRuns(): Promise<RunEntry[]> {
 
 export async function fetchRun(entry: RunEntry): Promise<EventEnvelope[]> {
   const url = entry.server ? `/api/runs/${entry.file}` : `${import.meta.env.BASE_URL}runs/${entry.file}`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", headers: operatorHeaders() });
   return parseJsonl(await res.text());
 }
 
@@ -238,7 +258,7 @@ export async function startServerRun(input: {
 }): Promise<RunEntry> {
   const res = await fetch("/api/runs", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...operatorHeaders() },
     body: JSON.stringify(input),
   });
   const body = (await res.json().catch(() => ({}))) as { run?: RunEntry; error?: string };
