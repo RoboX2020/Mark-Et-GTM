@@ -6,6 +6,7 @@ import { foldAll, parseJsonl, STAGES, type BacktestCase, type Brief } from "@mar
 import { loadConfig, REPO_ROOT } from "./config.js";
 import { runSimulation } from "./pipeline.js";
 import { Anonymizer } from "./connectors/anonymize.js";
+import type { LlmClient } from "./llm/types.js";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "market-"));
 const brief = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "data/briefs/example.json"), "utf8")) as Brief;
@@ -58,5 +59,34 @@ describe("pipeline (mock mode)", () => {
     expect(state.signals.every((s) => s.outcome === undefined)).toBe(true);
     expect(state.evidence.every((e) => !e.publishedAt || e.publishedAt <= state.cutoff!)).toBe(true);
     expect(state.backtest!.misses.length + state.backtest!.hits.length).toBeGreaterThan(0);
+  }, 60_000);
+
+  it("rejects after recording a terminal run.completed error when a stage fails", async () => {
+    // Regression: the pipeline used to swallow stage failures - it emitted
+    // run.completed status=error but RESOLVED, so the server manifest marked
+    // the failed run ok (run_2026-11-16_d16ade). It must now reject AFTER the
+    // terminal event is durable.
+    const failing: LlmClient = {
+      backend: "claude",
+      json: async (): Promise<never> => {
+        throw new Error("upstream down");
+      },
+      stream: async function* (): AsyncIterable<string> {
+        throw new Error("upstream down");
+      },
+    };
+    const liveCfg = {
+      ...loadConfig({ mode: "live", spacetime: false }),
+      anthropic: { apiKey: "test-key-not-sent", model: "claude-haiku-5-5", effort: "low" as const },
+      fetchai: { enabled: false, bridgeUrl: "" },
+    };
+    const out = path.join(tmp, `fail-${Math.random().toString(36).slice(2)}.jsonl`);
+    await expect(
+      runSimulation(liveCfg, { brief: { ...brief, population: 8 }, label: "fail", outFile: out, wrapClient: () => failing }),
+    ).rejects.toThrow(/upstream down|could not produce/);
+    const envs = parseJsonl(fs.readFileSync(out, "utf8"));
+    const last = envs.at(-1)?.event as { type?: string; status?: string };
+    expect(last.type).toBe("run.completed");
+    expect(last.status).toBe("error");
   }, 60_000);
 });
