@@ -52,6 +52,7 @@ export async function runSimulation(cfg: EngineConfig, opts: RunOptions): Promis
   bus.log(`LLM routing: ${llm.describe()}`);
 
   let status: "ok" | "error" = "ok";
+  let failure: Error | undefined;
   try {
     await ingest(ctx);
     await buildGraph(ctx);
@@ -66,9 +67,14 @@ export async function runSimulation(cfg: EngineConfig, opts: RunOptions): Promis
     else bus.emit({ type: "stage", stage: "backtest", status: "skipped" });
   } catch (err) {
     status = "error";
-    bus.log(`Run failed: ${(err as Error).stack ?? err}`, "error");
+    failure = err as Error;
+    bus.log(`Run failed: ${failure.stack ?? failure}`, "error");
   }
   bus.emit({ type: "run.completed", status, usage: llm.usage.byKey });
   await bus.close();
+  // The terminal event is durable before the rejection surfaces: callers (the
+  // server manifest, the CLI's exit status) must see the failure, not a
+  // resolved promise that reads as success.
+  if (failure) throw failure;
   return { runId, file };
 }
