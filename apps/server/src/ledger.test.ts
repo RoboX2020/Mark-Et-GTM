@@ -111,6 +111,22 @@ describe("GitHubSpendStore", () => {
     return state;
   }
 
+  it("serializes one instance's concurrent reservations and settles (no self-conflict latch)", async () => {
+    const remote = fakeRemote(0);
+    const store = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
+    await store.load();
+    // The engine's swarm pattern: dozens of calls reserving and settling at
+    // once from ONE process. Before mutations were queued, these raced the
+    // shared SHA, exhausted the conflict retries and latched the store
+    // unhealthy mid-run - every later reservation was then refused (this is
+    // the failure that killed run_2026-11-16_d16ade at the interview stage).
+    const reserved = await Promise.all(Array.from({ length: 40 }, () => store.tryAdd(0.02, 5)));
+    expect(reserved.every(Boolean)).toBe(true);
+    await Promise.all(Array.from({ length: 40 }, () => store.add(-0.015)));
+    expect(store.healthy()).toBe(true);
+    expect(remote.value).toBeCloseTo(40 * 0.005);
+  });
+
   it("rejects the losing reservation when two instances compete near the cap", async () => {
     const remote = fakeRemote(0);
     const a = new GitHubSpendStore("owner/private-repo", "spend.json", "tok");
