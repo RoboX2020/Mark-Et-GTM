@@ -35,6 +35,19 @@ Ported from the validated V11 offline pipeline:
 - pre-flight: every run's worst-case cost is estimated from the brief and refused when it
   would pass the per-run cap (`MARK8_PER_RUN_CAP_USD`, default $1) or the remaining budget.
 
+### Credential rotation record (metadata only - no secret values here)
+- 2026-11-15: `MARK8_LEDGER_TOKEN` rotated from the classic PAT `repo-cleanup-oct25`
+  (scopes repo+workflow, all repos - broader than needed; revoked the same day after a
+  dependency sweep of Render env keys, Actions secrets in all RoboX2020 repos, and repo
+  workflows found no other consumer) to a fine-grained PAT named `mark8-ledger-runtime`
+  (repository access: ONLY `RoboX2020/mark8-ledger`; permissions: Contents read+write;
+  custom expiration 2027-11-15). Rotation procedure: GitHub > Settings > Developer
+  settings > Fine-grained tokens > create with the same scope, paste the new value into
+  the Render service env `MARK8_LEDGER_TOKEN`, save with rebuild, verify
+  `/api/health` shows `ledgerHealthy: true`, then revoke the old token. Set a calendar
+  reminder ahead of 2027-11-15; the server fails closed (live mode refuses billable
+  runs) if the token lapses.
+
 ## Visitor protections
 Billable runs are OPERATOR-ONLY: in live mode `POST /api/runs` needs the
 `x-operator-token` header (`MARK8_OPERATOR_TOKEN`, timing-safe compare; live mode refuses
