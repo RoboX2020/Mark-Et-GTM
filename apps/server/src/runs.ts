@@ -116,12 +116,24 @@ export class RunManager {
       let status: RunRec["status"] = meta.status ?? "ok";
       try {
         const fd = fs.openSync(path.join(this.runsDir, file), "r");
-        const tailBuf = Buffer.alloc(Math.min(4096, stat.size));
+        const tailBuf = Buffer.alloc(Math.min(8192, stat.size));
         fs.readSync(fd, tailBuf, 0, tailBuf.length, Math.max(0, stat.size - tailBuf.length));
         fs.closeSync(fd);
-        const lastLine = tailBuf.toString("utf8").trim().split("\n").filter(Boolean).pop() ?? "";
-        const last = JSON.parse(lastLine) as { event?: { type?: string; status?: string } };
-        if (last.event?.type === "run.completed") status = last.event.status === "error" ? "error" : "ok";
+        // Concurrent stage siblings can keep logging AFTER run.completed, so
+        // scan the whole tail for the last terminal event; the last line of
+        // the file is not necessarily it (bit run_2026-11-16_d16ade).
+        const lines = tailBuf.toString("utf8").trim().split("\n").filter(Boolean);
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try {
+            const ev = (JSON.parse(lines[i]) as { event?: { type?: string; status?: string } }).event;
+            if (ev?.type === "run.completed") {
+              status = ev.status === "error" ? "error" : "ok";
+              break;
+            }
+          } catch {
+            continue; // torn line: keep scanning upward
+          }
+        }
       } catch {
         // no readable terminal event: keep the sidecar's value
       }
