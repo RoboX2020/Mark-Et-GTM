@@ -77,12 +77,22 @@ export class BudgetGuard {
     return (bytes + FRAMING_MARGIN_TOKENS) * this.price.in + maxTokens * this.price.out;
   }
 
+  /** A latched-unhealthy store is a fail-closed refusal, NOT a cap breach:
+   *  mislabeling it once sent a failed run's diagnosis chasing phantom overspend. */
+  private storeUnavailable(): BudgetError {
+    return new BudgetError("spend store unhealthy - refusing billable call (fail-closed, not a budget cap breach)");
+  }
+
   private async reserve(bound: number): Promise<void> {
     if (this.store) {
+      if (!this.store.healthy()) throw this.storeUnavailable();
       // Atomic check-and-add against the SHARED committed total, before any
       // provider call. The cap covers realized + outstanding across instances.
       const ok = await this.store.tryAdd(bound, this.budget.cap);
-      if (!ok) throw new BudgetError(`budget cap $${this.budget.cap.toFixed(2)} would be exceeded`);
+      if (!ok)
+        throw this.store.healthy()
+          ? new BudgetError(`budget cap $${this.budget.cap.toFixed(2)} would be exceeded`)
+          : this.storeUnavailable();
       this.outstanding += bound;
       this.pushedTarget += bound; // the store already holds this reservation
       this.syncCommitted();
