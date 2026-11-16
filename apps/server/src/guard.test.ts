@@ -3,6 +3,7 @@ import type { JsonRequest, LlmClient, TextRequest } from "@market/engine/llm/typ
 import { UsageMeter } from "@market/engine/llm/types";
 import { Budget, BudgetError, MAX_REQUEST_BYTES } from "./budget.js";
 import { BudgetGuard, budgetedClient, meterCostUsd } from "./guard.js";
+import type { SpendStore } from "./ledger.js";
 import { z } from "zod";
 
 const Schema = z.object({ ok: z.boolean() });
@@ -132,5 +133,37 @@ describe("BudgetGuard", () => {
     meter.add("claude", "a", 1000, 1000);
     meter.add("mock", "b", 5, 5);
     expect(meterCostUsd(meter, { in: 0.1e-6, out: 0.5e-6 })).toBeCloseTo(1005 * 0.1e-6 + 1005 * 0.5e-6);
+  });
+
+  it("reports a latched-unhealthy store as store failure, not a cap breach", async () => {
+    const meter = new UsageMeter();
+    const budget = new Budget(5);
+    const store: SpendStore = {
+      load: async () => 0,
+      save: async () => {},
+      tryAdd: async () => false, // latched: refuses without even checking
+      add: async () => {},
+      healthy: () => false,
+    };
+    const client = new BudgetGuard(meter, budget, "claude-haiku-5-5", store).wrap(fakeClient(meter));
+    const err = (await client.json(jsonReq).catch((e: unknown) => e)) as Error;
+    expect(err).toBeInstanceOf(BudgetError);
+    expect(err.message).toMatch(/spend store unhealthy/);
+    expect(err.message).not.toMatch(/budget cap \$/); // not the cap-refusal wording
+    expect(budget.committed).toBe(0); // nothing was reserved
+  });
+
+  it("reports a genuine refusal from a healthy store as a cap breach", async () => {
+    const meter = new UsageMeter();
+    const budget = new Budget(5);
+    const store: SpendStore = {
+      load: async () => 0,
+      save: async () => {},
+      tryAdd: async () => false, // healthy store, reservation genuinely lost
+      add: async () => {},
+      healthy: () => true,
+    };
+    const client = new BudgetGuard(meter, budget, "claude-haiku-5-5", store).wrap(fakeClient(meter));
+    await expect(client.json(jsonReq)).rejects.toThrow(/budget cap \$5\.00 would be exceeded/);
   });
 });
