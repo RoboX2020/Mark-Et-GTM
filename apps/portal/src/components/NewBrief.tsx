@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import type { Brief, Channel, PriceModel } from "@market/core";
-import { fetchHealth, startServerRun, type RunEntry, type ServerHealth } from "../lib/player";
+import { fetchHealth, getOperatorToken, setOperatorToken, startServerRun, type RunEntry, type ServerHealth } from "../lib/player";
 
 const CHANNELS: Channel[] = ["tiktok", "reddit", "x", "product_hunt", "app_store", "word_of_mouth"];
 
@@ -54,6 +54,10 @@ export function NewBrief({ onClose, onStarted }: { onClose: () => void; onStarte
   const [health, setHealth] = useState<ServerHealth | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Operator sign-in state: opToken mirrors localStorage; opInput is the field draft.
+  const [opToken, setOpToken] = useState(getOperatorToken());
+  const [opInput, setOpInput] = useState("");
+  const [showSignIn, setShowSignIn] = useState(false);
   const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
 
   useEffect(() => {
@@ -137,10 +141,59 @@ export function NewBrief({ onClose, onStarted }: { onClose: () => void; onStarte
           {error && <p className="subtle" style={{ color: "var(--bad, #c33)", margin: 0 }}>{error}</p>}
           <div className="row wrap">
             {health && health.budget?.billableRuns === "operator-only" ? (
-              // Visitors must see the restriction plainly, not a button that 403s.
-              <p className="subtle" style={{ margin: 0 }}>
-                Live runs are operator-only while the runtime budget is being settled. Every finished run below is open.
-              </p>
+              opToken ? (
+                // Signed-in operator gets the real run control; visitors never see it.
+                <>
+                  <button className="btn" onClick={runNow} disabled={starting || !form.description.trim()}>
+                    {starting ? "Starting…" : "Run simulation"}
+                  </button>
+                  <button
+                    className="btn subtle"
+                    onClick={() => {
+                      setOperatorToken("");
+                      setOpToken("");
+                    }}
+                  >
+                    Sign out operator
+                  </button>
+                </>
+              ) : (
+                // Visitors must see the restriction plainly, not a button that 403s.
+                <>
+                  <p className="subtle" style={{ margin: 0 }}>
+                    Live runs are operator-only while the runtime budget is being settled. Every finished run below is open.{" "}
+                    <button className="btn subtle" onClick={() => setShowSignIn((v) => !v)}>
+                      Operator sign-in
+                    </button>
+                  </p>
+                  {showSignIn && (
+                    <div className="row wrap" style={{ alignItems: "flex-end" }}>
+                      <label className="field" style={{ flex: 1 }}>
+                        Operator token
+                        <input
+                          type="password"
+                          value={opInput}
+                          onChange={(e) => setOpInput(e.target.value)}
+                          placeholder="Stored only in this browser"
+                          autoComplete="off"
+                        />
+                      </label>
+                      <button
+                        className="btn"
+                        disabled={!opInput.trim()}
+                        onClick={() => {
+                          setOperatorToken(opInput.trim());
+                          setOpToken(opInput.trim());
+                          setOpInput("");
+                          setShowSignIn(false);
+                        }}
+                      >
+                        Sign in
+                      </button>
+                    </div>
+                  )}
+                </>
+              )
             ) : health && !health.budget ? (
               <button className="btn" onClick={runNow} disabled={starting || !form.description.trim()}>
                 {starting ? "Starting…" : "Run simulation"}
